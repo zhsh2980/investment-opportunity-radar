@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>控制台 - 投资机会雷达</title>
+    <meta name="description" content="投资机会雷达 - 智能分析公众号文章中的投资机会">
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <div class="header-left">
+                <span class="logo">📡</span>
+                <h1>投资机会雷达</h1>
+            </div>
+            <div class="header-right">
+                <span class="user-info">👤 {{ username }}</span>
+                <form action="/api/auth/logout" method="POST" style="display:inline;">
+                    <button type="submit" class="logout-btn">退出登录</button>
+                </form>
+            </div>
+        </header>
+
+        <main class="dashboard-main">
+            <div class="welcome-card">
+                <h2>🎉 欢迎回来！</h2>
+                <p>系统部署成功，登录功能正常运行。</p>
+                <p class="hint">后续功能正在开发中...</p>
+            </div>
+
+            <div class="status-cards">
+                <div class="status-card">
+                    <div class="card-icon">📊</div>
+                    <div class="card-content">
+                        <h3>待分析文章</h3>
+                        <p class="card-value">--</p>
+                    </div>
+                </div>
+
+                <div class="status-card">
+                    <div class="card-icon">💡</div>
+                    <div class="card-content">
+                        <h3>今日机会</h3>
+                        <p class="card-value">--</p>
+                    </div>
+                </div>
+
+                <div class="status-card">
+                    <div class="card-icon">📬</div>
+                    <div class="card-content">
+                        <h3>推送次数</h3>
+                        <p class="card-value">--</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="quick-actions">
+                <h3>快捷操作</h3>
+                <div class="action-buttons">
+                    <a href="/healthz" target="_blank" class="action-btn">
+                        ❤️ 健康检查
+                    </a>
+                </div>
+            </div>
+        </main>
+
+        <footer class="dashboard-footer">
+            <p>Investment Opportunity Radar v0.1.0</p>
+        </footer>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

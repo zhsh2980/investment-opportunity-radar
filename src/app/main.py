@@ -55,15 +55,58 @@ async def healthz():
 @app.get("/login")
 async def login_page(request: Request):
     """登录页面"""
+    # 如果已登录，跳转到首页
+    token = request.cookies.get("session_token")
+    if token:
+        from .core.security import verify_session_token
+        user_id = verify_session_token(token)
+        if user_id:
+            return RedirectResponse(url="/dashboard", status_code=303)
     return templates.TemplateResponse("login.html", {"request": request})
 
 
 @app.get("/")
-async def root():
-    """根路由重定向到登录"""
-    return RedirectResponse(url="/login")
+async def root(request: Request):
+    """根路由"""
+    token = request.cookies.get("session_token")
+    if token:
+        from .core.security import verify_session_token
+        user_id = verify_session_token(token)
+        if user_id:
+            return RedirectResponse(url="/dashboard", status_code=303)
+    return RedirectResponse(url="/login", status_code=303)
+
+
+@app.get("/dashboard")
+async def dashboard_page(request: Request):
+    """仪表板页面（需要登录）"""
+    from .core.security import verify_session_token
+    from .database import SessionLocal
+    from .domain.models import AppUser
+    
+    token = request.cookies.get("session_token")
+    if not token:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    user_id = verify_session_token(token)
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    # 获取用户名
+    session = SessionLocal()
+    try:
+        user = session.query(AppUser).filter(AppUser.id == user_id).first()
+        username = user.username if user else "未知用户"
+    finally:
+        session.close()
+    
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "username": username,
+    })
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("src.app.main:app", host="0.0.0.0", port=8000, reload=True)
+
