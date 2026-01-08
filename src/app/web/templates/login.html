@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 投资机会雷达</title>
+    <meta name="description" content="投资机会雷达 - 智能分析公众号文章中的投资机会">
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo">📡</div>
+                <h1>投资机会雷达</h1>
+                <p class="subtitle">智能发现投资机会</p>
+            </div>
+            
+            <form class="login-form" action="/api/auth/login" method="POST">
+                <div class="form-group">
+                    <label for="username">用户名</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username" 
+                        placeholder="请输入用户名"
+                        required
+                        autocomplete="username"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        placeholder="请输入密码"
+                        required
+                        autocomplete="current-password"
+                    >
+                </div>
+                
+                <div class="form-group checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="remember_me" id="remember_me">
+                        <span class="checkmark"></span>
+                        记住我（30天内免登录）
+                    </label>
+                </div>
+                
+                <button type="submit" class="login-btn">
+                    <span>登录</span>
+                    <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </button>
+            </form>
+            
+            <div class="login-footer">
+                <p>Investment Opportunity Radar</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# Local-only files (do not commit secrets/keys)
+key/
+*.pem
+*.key
+*.ppk
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+.env
+.env.*
+!.env.example

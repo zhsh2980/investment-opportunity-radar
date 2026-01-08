@@ -1,0 +1,15 @@
+[Unit]
+Description=WeRSS - WeChat MP to RSS Service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/srv/we-mp-rss/app
+Environment="PATH=/srv/we-mp-rss/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/srv/we-mp-rss/venv/bin/python main.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
