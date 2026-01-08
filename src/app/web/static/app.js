@@ -14,6 +14,25 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 /**
+ * 切换密码显示/隐藏
+ */
+function togglePassword() {
+    const passwordInput = document.getElementById('password');
+    const eyeIcon = document.querySelector('.eye-icon');
+    const eyeOffIcon = document.querySelector('.eye-off-icon');
+
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        eyeIcon.style.display = 'none';
+        eyeOffIcon.style.display = 'block';
+    } else {
+        passwordInput.type = 'password';
+        eyeIcon.style.display = 'block';
+        eyeOffIcon.style.display = 'none';
+    }
+}
+
+/**
  * 处理登录表单提交
  */
 async function handleLogin(event) {
