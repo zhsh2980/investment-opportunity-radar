@@ -51,14 +51,28 @@ async function handleLogin(event) {
         const response = await fetch(form.action, {
             method: 'POST',
             body: formData,
+            redirect: 'manual', // 不自动跟随重定向
         });
 
-        if (response.ok) {
-            // 登录成功，跳转到首页
+        // 303 重定向表示登录成功
+        if (response.type === 'opaqueredirect' || response.status === 303 || response.status === 302) {
             window.location.href = '/';
+            return;
+        }
+
+        // 200 也可能表示成功（如果后端返回 JSON）
+        if (response.ok) {
+            window.location.href = '/';
+            return;
+        }
+
+        // 处理错误
+        if (response.status === 401 || response.status === 403) {
+            const data = await response.json().catch(() => ({}));
+            alert(data.detail || '用户名或密码错误');
         } else {
-            const data = await response.json();
-            alert(data.detail || '登录失败，请检查用户名和密码');
+            const data = await response.json().catch(() => ({}));
+            alert(data.detail || '登录失败，请稍后重试');
         }
     } catch (error) {
         console.error('登录错误:', error);
