@@ -6,7 +6,7 @@ from typing import Optional
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 
-from .config import get_settings
+from ..config import get_settings
 
 
 # 密码哈希上下文
