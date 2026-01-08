@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: radar-postgres
+    environment:
+      POSTGRES_USER: radar
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-radar_secret}
+      POSTGRES_DB: radar
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U radar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: radar-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 机会雷达 Web 服务
+  web:
+    build: .
+    container_name: radar-web
+    environment:
+      - DATABASE_URL=postgresql://radar:${DB_PASSWORD:-radar_secret}@postgres:5432/radar
+      - REDIS_URL=redis://redis:6379/0
+      - WERSS_BASE_URL=http://host.docker.internal:8001
+      - WERSS_USERNAME=${WERSS_USERNAME}
+      - WERSS_PASSWORD=${WERSS_PASSWORD}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DINGTALK_WEBHOOK=${DINGTALK_WEBHOOK}
+      - DINGTALK_SECRET=${DINGTALK_SECRET}
+      - SECRET_KEY=${SECRET_KEY:-change-me}
+      - RADAR_ADMIN_USERNAME=${RADAR_ADMIN_USERNAME:-admin}
+      - RADAR_ADMIN_PASSWORD=${RADAR_ADMIN_PASSWORD}
+      - TZ=Asia/Shanghai
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Celery Worker（后台任务）
+  worker:
+    build: .
+    container_name: radar-worker
+    command: celery -A src.app.tasks.celery_app worker -l info
+    environment:
+      - DATABASE_URL=postgresql://radar:${DB_PASSWORD:-radar_secret}@postgres:5432/radar
+      - REDIS_URL=redis://redis:6379/0
+      - WERSS_BASE_URL=http://host.docker.internal:8001
+      - WERSS_USERNAME=${WERSS_USERNAME}
+      - WERSS_PASSWORD=${WERSS_PASSWORD}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DINGTALK_WEBHOOK=${DINGTALK_WEBHOOK}
+      - DINGTALK_SECRET=${DINGTALK_SECRET}
+      - TZ=Asia/Shanghai
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Celery Beat（定时调度）
+  beat:
+    build: .
+    container_name: radar-beat
+    command: celery -A src.app.tasks.celery_app beat -l info
+    environment:
+      - DATABASE_URL=postgresql://radar:${DB_PASSWORD:-radar_secret}@postgres:5432/radar
+      - REDIS_URL=redis://redis:6379/0
+      - TZ=Asia/Shanghai
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

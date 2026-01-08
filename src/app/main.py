@@ -39,6 +39,10 @@ app.mount("/static", StaticFiles(directory="src/app/web/static"), name="static")
 # 模板
 templates = Jinja2Templates(directory="src/app/web/templates")
 
+# ===== 注册路由 =====
+from .web.routers import auth
+app.include_router(auth.router)
+
 
 # ===== 健康检查 =====
 @app.get("/healthz")
