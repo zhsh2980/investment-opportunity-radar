@@ -3,128 +3,126 @@
 {% block title %}控制台 - 投资机会雷达{% endblock %}
 
 {% block content %}
-<div class="dashboard">
-    <!-- 今日概览卡片 -->
-    <section class="overview-section">
-        <div class="overview-cards">
-            <!-- 今日结论卡 -->
-            <div
-                class="card conclusion-card {% if opportunities_count > 0 %}has-opportunity{% else %}no-opportunity{% endif %}">
-                <div class="card-icon">
-                    {% if opportunities_count > 0 %}🎯{% else %}📭{% endif %}
-                </div>
-                <div class="card-content">
-                    <h3>今日结论</h3>
-                    {% if opportunities_count > 0 %}
-                    <p class="highlight">发现 <strong>{{ opportunities_count }}</strong> 个机会</p>
-                    <p class="sub">最高评分: <strong>{{ max_score }}</strong> 分</p>
-                    {% else %}
-                    <p class="muted">暂无投资机会</p>
-                    <p class="sub">阈值: {{ threshold }} 分</p>
-                    {% endif %}
-                </div>
-            </div>
+<div class="space-y-8">
 
-            <!-- 任务进度卡 -->
-            <div class="card progress-card">
-                <div class="card-icon">📊</div>
-                <div class="card-content">
-                    <h3>今日任务</h3>
-                    <div class="slots-progress">
-                        {% for slot, info in slots_status.items() %}
-                        <div class="slot-item {{ info.status }}">
-                            <span class="slot-time">{{ slot }}</span>
-                            <span class="slot-dot"></span>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <p class="sub">已分析 {{ total_analyzed }} 篇</p>
-                </div>
-            </div>
-
-            <!-- 快速入口卡 -->
-            <div class="card quick-card">
-                <div class="card-icon">🚀</div>
-                <div class="card-content">
-                    <h3>快速入口</h3>
-                    <div class="quick-links">
-                        <a href="/daily/{{ today }}" class="quick-link">📅 今日日报</a>
-                        <a href="/history" class="quick-link">📚 历史记录</a>
-                        <a href="/healthz" target="_blank" class="quick-link">❤️ 健康检查</a>
-                    </div>
-                </div>
-            </div>
+    <!-- Welcome Section -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">早安, {{ username }}</h1>
+            <p class="text-slate-500 mt-1">这是今天的投资机会分析概览。</p>
         </div>
-    </section>
-
-    <!-- 今日机会列表 -->
-    {% if opportunities %}
-    <section class="section">
-        <h2 class="section-title">🎯 今日机会</h2>
-        <div class="opportunity-list">
-            {% for analysis in opportunities %}
-            <a href="/analysis/{{ analysis.id }}" class="opportunity-card">
-                <div
-                    class="opp-score score-{{ 'high' if analysis.score >= 80 else ('medium' if analysis.score >= 60 else 'low') }}">
-                    {{ analysis.score }}
-                </div>
-                <div class="opp-content">
-                    <h4>{{ analysis.content_item.title }}</h4>
-                    <p class="opp-meta">
-                        <span class="mp-name">{{ analysis.content_item.mp_name or '未知公众号' }}</span>
-                        <span class="pub-time">{{ analysis.content_item.published_at.strftime('%m-%d %H:%M') }}</span>
-                    </p>
-                    <p class="opp-summary">{{ analysis.summary_md[:100] }}...</p>
-                </div>
+        <div class="flex gap-3">
+            <a href="/healthz" target="_blank"
+                class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm">
+                健康检查
             </a>
-            {% endfor %}
+            <a href="/daily/{{ today_date }}"
+                class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-indigo-700 transition-colors shadow-sm">
+                查看今日日报
+            </a>
         </div>
-    </section>
-    {% endif %}
+    </div>
 
-    <!-- 最近分析 -->
-    <section class="section">
-        <h2 class="section-title">📝 最近分析</h2>
-        {% if recent_analyses %}
-        <div class="analysis-table-wrapper">
-            <table class="analysis-table">
-                <thead>
-                    <tr>
-                        <th>评分</th>
-                        <th>标题</th>
-                        <th>公众号</th>
-                        <th>时间</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for analysis in recent_analyses %}
-                    <tr
-                        class="{% if analysis.has_opportunity and analysis.score >= threshold %}row-opportunity{% endif %}">
-                        <td>
-                            <span
-                                class="score-badge score-{{ 'high' if analysis.score >= 80 else ('medium' if analysis.score >= 60 else 'low') }}">
-                                {{ analysis.score }}
-                            </span>
-                        </td>
-                        <td class="title-cell">{{ analysis.content_item.title[:40] }}{% if
-                            analysis.content_item.title|length > 40 %}...{% endif %}</td>
-                        <td>{{ analysis.content_item.mp_name or '-' }}</td>
-                        <td>{{ analysis.content_item.published_at.strftime('%m-%d %H:%M') }}</td>
-                        <td>
-                            <a href="/analysis/{{ analysis.id }}" class="btn-view">查看</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <!-- Status Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Card 1: Pending -->
+        <div
+            class="bg-white rounded-lg border border-slate-200 shadow-sm p-6 flex flex-col justify-between h-full hover:shadow-md transition-shadow">
+            <div>
+                <dt class="text-sm font-medium text-slate-500 uppercase tracking-wider">待分析文章</dt>
+                <dd class="mt-2 text-3xl font-bold text-slate-900 leading-none">--</dd>
+            </div>
+            <div class="mt-4">
+                <div class="text-sm text-slate-500">今日总计获取</div>
+            </div>
         </div>
-        {% else %}
-        <div class="empty-state">
-            <p>暂无分析结果</p>
-            <p class="hint">当 WeRSS 有新文章时，系统会自动分析</p>
+
+        <!-- Card 2: Opportunities -->
+        <div
+            class="bg-white rounded-lg border border-slate-200 shadow-sm p-6 flex flex-col justify-between h-full hover:shadow-md transition-shadow">
+            <div>
+                <dt class="text-sm font-medium text-slate-500 uppercase tracking-wider">今日机会</dt>
+                <dd class="mt-2 text-3xl font-bold text-indigo-600 leading-none">--</dd>
+            </div>
+            <div class="mt-4">
+                <span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
+                    高潜力
+                </span>
+            </div>
         </div>
-        {% endif %}
-    </section>
+
+        <!-- Card 3: Push Status -->
+        <div
+            class="bg-white rounded-lg border border-slate-200 shadow-sm p-6 flex flex-col justify-between h-full hover:shadow-md transition-shadow">
+            <div>
+                <dt class="text-sm font-medium text-slate-500 uppercase tracking-wider">推送次数</dt>
+                <dd class="mt-2 text-3xl font-bold text-slate-900 leading-none">--</dd>
+            </div>
+            <div class="mt-4">
+                <div class="flex gap-1 h-1.5 mt-2">
+                    <!-- 5 slots visual representation -->
+                    <div class="flex-1 bg-slate-100 rounded-lr" title="07:00"></div>
+                    <div class="flex-1 bg-slate-100 rounded-lr" title="12:00"></div>
+                    <div class="flex-1 bg-slate-100 rounded-lr" title="14:00"></div>
+                    <div class="flex-1 bg-slate-100 rounded-lr" title="18:00"></div>
+                    <div class="flex-1 bg-slate-100 rounded-lr" title="22:00"></div>
+                </div>
+                <div class="mt-2 text-xs text-slate-400 flex justify-between font-mono">
+                    <span>07:00</span>
+                    <span>22:00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Usage/Info Section -->
+    <div class="bg-white rounded-lg border border-slate-200 shadow-sm divide-y divide-slate-100">
+        <div class="p-6">
+            <h3 class="text-base font-semibold text-slate-900">系统状态</h3>
+        </div>
+        <div class="p-6">
+            <ul class="space-y-4">
+                <li class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="p-3 bg-slate-50 rounded-lg text-slate-500 ring-1 ring-slate-900/5">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z">
+                                </path>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="font-medium text-slate-900">WeRSS 连接</p>
+                            <p class="text-sm text-slate-500">Token 状态检查中...</p>
+                        </div>
+                    </div>
+                    <span
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20">
+                        正常
+                    </span>
+                </li>
+                <li class="flex items-center justify-between pt-4 border-t border-slate-50">
+                    <div class="flex items-center gap-4">
+                        <div class="p-3 bg-slate-50 rounded-lg text-slate-500 ring-1 ring-slate-900/5">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="font-medium text-slate-900">DeepSeek API</p>
+                            <p class="text-sm text-slate-500">模型: deepseek-reasoner</p>
+                        </div>
+                    </div>
+                    <span
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20">
+                        就绪
+                    </span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
 </div>
 {% endblock %}
