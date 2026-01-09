@@ -86,18 +86,30 @@ async def update_settings(
     beat_restarted = False
     if schedule_slots_changed:
         try:
-            import subprocess
-            result = subprocess.run(
-                ["docker", "restart", "radar-beat"],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            if result.returncode == 0:
+            import socket
+            import http.client
+            
+            # 通过 Unix socket 连接 Docker API
+            class UnixHTTPConnection(http.client.HTTPConnection):
+                def __init__(self, socket_path):
+                    super().__init__("localhost")
+                    self.socket_path = socket_path
+                    
+                def connect(self):
+                    self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    self.sock.connect(self.socket_path)
+            
+            conn = UnixHTTPConnection("/var/run/docker.sock")
+            conn.request("POST", "/containers/radar-beat/restart")
+            response = conn.getresponse()
+            
+            if response.status == 204:
                 beat_restarted = True
                 logger.info("已自动重启 radar-beat 容器，调度配置已生效")
             else:
-                logger.warning(f"重启 radar-beat 失败: {result.stderr}")
+                logger.warning(f"重启 radar-beat 失败: HTTP {response.status}")
+                
+            conn.close()
         except Exception as e:
             logger.warning(f"重启 radar-beat 异常: {e}")
     
