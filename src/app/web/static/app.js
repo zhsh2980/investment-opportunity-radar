@@ -82,3 +82,13 @@ async function handleLogin(event) {
         submitBtn.disabled = false;
     }
 }
+
+/**
+ * 切换移动端导航菜单
+ */
+function toggleMobileMenu() {
+    const menu = document.getElementById('mobileMenu');
+    if (menu) {
+        menu.classList.toggle('hidden');
+    }
+}
