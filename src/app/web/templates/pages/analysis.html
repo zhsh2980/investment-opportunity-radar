@@ -9,7 +9,7 @@
     <div class="report-panel space-y-6 custom-scrollbar-hide">
 
         <!-- Header Card -->
-        <div class="card-premium p-6">
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
             <div class="flex items-start justify-between">
                 <div class="pr-4">
                     <span
@@ -81,7 +81,8 @@
         </div>
 
         <!-- Executive Summary -->
-        <div class="card-premium p-6 border-l-4 border-l-indigo-500">
+        <div
+            class="bg-white rounded-lg border-l-4 border-l-indigo-500 border border-t border-r border-b border-slate-200 shadow-sm p-6">
             <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide mb-3 flex items-center gap-2">
                 <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -97,7 +98,7 @@
         <!-- Action Plan -->
         {% if result.opportunities %}
         {% for opp in result.opportunities %}
-        <div class="card-premium p-6">
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
             <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                 🎯 {{ opp.title }}
             </h3>
@@ -164,7 +165,7 @@
 
         <!-- Risks -->
         {% if result.risk_warnings %}
-        <div class="card-premium p-6 bg-red-50/30 border-red-100">
+        <div class="bg-red-50/30 rounded-lg border border-red-100 shadow-sm p-6">
             <h3 class="text-sm font-bold text-red-800 uppercase tracking-wide mb-3 flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -186,7 +187,7 @@
 
         <!-- Verification Checklist -->
         {% if result.opportunities and result.opportunities[0].verification_checklist %}
-        <div class="card-premium p-6">
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
             <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide mb-3">✅ 核验清单</h3>
             <div class="space-y-3">
                 {% for item in result.opportunities[0].verification_checklist %}
@@ -204,7 +205,7 @@
 
         <!-- Search Suggestions -->
         {% if result.opportunities and result.opportunities[0].search_suggestions %}
-        <div class="card-premium p-6">
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
             <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide mb-3">🔍 建议搜索</h3>
             <div class="space-y-2">
                 {% for q in result.opportunities[0].search_suggestions %}

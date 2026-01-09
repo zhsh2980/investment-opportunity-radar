@@ -26,7 +26,8 @@
         <!-- Active Version Card -->
         {% if name in active_prompts %}
         {% set active = active_prompts[name] %}
-        <div class="card-premium p-6 bg-white border-l-4 border-l-green-500">
+        <div
+            class="bg-white rounded-lg border-l-4 border-l-green-500 border border-t border-r border-b border-slate-200 shadow-sm p-6">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-3">
                     <span class="px-2 py-1 bg-slate-100 text-slate-600 text-xs font-mono rounded">v{{ active.version
@@ -84,7 +85,7 @@
 
         <!-- Version History -->
         {% if versions|length > 1 %}
-        <div class="card-premium overflow-hidden mt-6">
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden mt-6">
             <div class="bg-slate-50 px-6 py-3 border-b border-slate-200">
                 <h4 class="text-xs font-medium text-slate-500 uppercase">历史版本</h4>
             </div>
