@@ -23,7 +23,7 @@ class WeRSSClient:
     def __init__(self):
         settings = get_settings()
         self.base_url = settings.werss_base_url.rstrip('/')
-        self.api_prefix = "/api"
+        self.api_prefix = "/api/v1/wx"
         self.username = settings.werss_username
         self.password = settings.werss_password
         
