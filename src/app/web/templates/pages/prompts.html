@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Prompt 管理 - 投资机会雷达{% endblock %}
+
+{% block content %}
+<div class="prompts-page">
+    <header class="page-header">
+        <h1>📝 Prompt 管理</h1>
+        <p class="page-desc">管理 DeepSeek 分析使用的提示词模板</p>
+    </header>
+
+    {% for name, versions in prompts_by_name.items() %}
+    <section class="prompt-section">
+        <div class="prompt-header">
+            <h2>{{ name }}</h2>
+            {% if name in active_prompts %}
+            <span class="active-badge">当前版本: v{{ active_prompts[name].version }}</span>
+            {% endif %}
+        </div>
+
+        <!-- 当前活跃版本 -->
+        {% if name in active_prompts %}
+        {% set active = active_prompts[name] %}
+        <div class="active-prompt-card">
+            <div class="prompt-meta">
+                <span class="version-tag">v{{ active.version }}</span>
+                <span class="status-active">✓ 活跃</span>
+                <span class="create-time">创建于 {{ active.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            </div>
+
+            <div class="prompt-content-section">
+                <h4>系统提示词 (System Prompt)</h4>
+                <div class="prompt-textarea-wrapper">
+                    <textarea id="system-{{ name }}" class="prompt-textarea"
+                        readonly>{{ active.system_prompt }}</textarea>
+                </div>
+            </div>
+
+            <div class="prompt-content-section">
+                <h4>用户提示词模板 (User Prompt Template)</h4>
+                <div class="prompt-textarea-wrapper">
+                    <textarea id="user-{{ name }}" class="prompt-textarea"
+                        readonly>{{ active.user_template }}</textarea>
+                </div>
+            </div>
+
+            {% if active.threshold %}
+            <div class="prompt-info">
+                <span><strong>推送阈值:</strong> {{ active.threshold }} 分</span>
+            </div>
+            {% endif %}
+
+            <div class="prompt-actions">
+                <button class="btn-edit" onclick="enableEdit('{{ name }}')">✏️ 编辑</button>
+                <button class="btn-copy" onclick="copyPrompt('{{ name }}')">📋 复制</button>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 历史版本列表 -->
+        {% if versions|length > 1 %}
+        <div class="version-history">
+            <h4>📚 历史版本</h4>
+            <table class="version-table">
+                <thead>
+                    <tr>
+                        <th>版本</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in versions %}
+                    {% if not v.is_active %}
+                    <tr>
+                        <td>v{{ v.version }}</td>
+                        <td><span class="status-inactive">未激活</span></td>
+                        <td>{{ v.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <button class="btn-sm btn-view" onclick="viewVersion({{ v.id }})">查看</button>
+                            <form action="/api/prompts/{{ v.id }}/activate" method="POST" style="display:inline;">
+                                <button type="submit" class="btn-sm btn-activate">激活</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </section>
+    {% endfor %}
+
+    {% if not prompts_by_name %}
+    <div class="empty-state">
+        <p>暂无 Prompt 配置</p>
+        <p class="hint">请运行 <code>python src/manage.py init-prompts</code> 初始化默认 Prompt</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 编辑模态框 -->
+<div id="editModal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>编辑 Prompt</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="editForm" action="/api/prompts" method="POST">
+            <input type="hidden" name="name" id="editName">
+            <div class="form-group">
+                <label>系统提示词</label>
+                <textarea name="system_prompt" id="editSystemPrompt" rows="10"></textarea>
+            </div>
+            <div class="form-group">
+                <label>用户提示词模板</label>
+                <textarea name="user_template" id="editUserTemplate" rows="10"></textarea>
+            </div>
+            <div class="form-group">
+                <label>推送阈值</label>
+                <input type="number" name="threshold" id="editThreshold" min="0" max="100" value="60">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" onclick="closeModal()">取消</button>
+                <button type="submit" class="btn-save">保存新版本</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function enableEdit(name) {
+        document.getElementById('editName').value = name;
+        document.getElementById('editSystemPrompt').value = document.getElementById('system-' + name).value;
+        document.getElementById('editUserTemplate').value = document.getElementById('user-' + name).value;
+        document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('editModal').style.display = 'none';
+    }
+
+    function copyPrompt(name) {
+        const system = document.getElementById('system-' + name).value;
+        const user = document.getElementById('user-' + name).value;
+        const text = `=== System Prompt ===\n${system}\n\n=== User Template ===\n${user}`;
+        navigator.clipboard.writeText(text).then(() => {
+            alert('已复制到剪贴板');
+        });
+    }
+
+    function viewVersion(id) {
+        window.location.href = '/prompts/' + id;
+    }
+</script>
+{% endblock %}

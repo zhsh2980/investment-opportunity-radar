@@ -22,6 +22,8 @@
             <a href="/daily/{{ today or '' }}"
                 class="nav-link {% if '/daily/' in request.url.path %}active{% endif %}">今日日报</a>
             <a href="/history" class="nav-link {% if request.url.path == '/history' %}active{% endif %}">历史</a>
+            <a href="/prompts" class="nav-link {% if request.url.path == '/prompts' %}active{% endif %}">Prompts</a>
+            <a href="/settings" class="nav-link {% if request.url.path == '/settings' %}active{% endif %}">设置</a>
         </div>
         <div class="nav-user">
             <span class="user-name">👤 {{ user.username }}</span>
@@ -35,6 +37,8 @@
         <a href="/" class="mobile-link">首页</a>
         <a href="/daily/{{ today or '' }}" class="mobile-link">今日日报</a>
         <a href="/history" class="mobile-link">历史</a>
+        <a href="/prompts" class="mobile-link">Prompts</a>
+        <a href="/settings" class="mobile-link">设置</a>
         <form action="/api/auth/logout" method="POST">
             <button type="submit" class="mobile-link logout">退出登录</button>
         </form>

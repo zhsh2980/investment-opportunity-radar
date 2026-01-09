@@ -274,3 +274,68 @@ async def history(
         "type_filter": type_filter,
         "keyword": keyword or "",
     })
+
+
+# ===== Prompt 管理页 =====
+@router.get("/prompts", response_class=HTMLResponse)
+async def prompts_page(request: Request, db: Session = Depends(get_db)):
+    """Prompt 管理页"""
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login?next=/prompts", status_code=303)
+    
+    from ...domain.models import PromptVersion
+    
+    # 获取所有 Prompt 版本
+    prompts = db.query(PromptVersion).order_by(
+        PromptVersion.name,
+        desc(PromptVersion.version)
+    ).all()
+    
+    # 按名称分组
+    prompts_by_name = {}
+    for p in prompts:
+        if p.name not in prompts_by_name:
+            prompts_by_name[p.name] = []
+        prompts_by_name[p.name].append(p)
+    
+    # 获取当前活跃的 Prompt
+    active_prompts = {p.name: p for p in prompts if p.is_active}
+    
+    return templates.TemplateResponse("pages/prompts.html", {
+        "request": request,
+        "user": user,
+        "prompts_by_name": prompts_by_name,
+        "active_prompts": active_prompts,
+    })
+
+
+# ===== 设置页 =====
+@router.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request, db: Session = Depends(get_db)):
+    """系统设置页"""
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login?next=/settings", status_code=303)
+    
+    # 获取所有设置
+    all_settings = db.query(Settings).all()
+    settings_dict = {s.key: s.value_json for s in all_settings}
+    
+    # 设置默认值
+    default_settings = {
+        "push_score_threshold": 60,
+        "remember_me_days": 30,
+        "window_days": 3,
+        "schedule_slots": ["07:00", "12:00", "14:00", "18:00", "22:00"],
+    }
+    
+    for key, default in default_settings.items():
+        if key not in settings_dict:
+            settings_dict[key] = default
+    
+    return templates.TemplateResponse("pages/settings.html", {
+        "request": request,
+        "user": user,
+        "settings": settings_dict,
+    })

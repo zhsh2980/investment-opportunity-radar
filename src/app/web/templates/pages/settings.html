@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}系统设置 - 投资机会雷达{% endblock %}
+
+{% block content %}
+<div class="settings-page">
+    <header class="page-header">
+        <h1>⚙️ 系统设置</h1>
+        <p class="page-desc">配置系统运行参数</p>
+    </header>
+
+    <form id="settingsForm" action="/api/settings" method="POST" class="settings-form">
+        <!-- 推送设置 -->
+        <section class="settings-section">
+            <h2>📣 推送设置</h2>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <label for="push_score_threshold">推送阈值</label>
+                    <p class="setting-desc">只有评分达到此阈值的机会才会推送到钉钉</p>
+                </div>
+                <div class="setting-control">
+                    <input type="number" id="push_score_threshold" name="push_score_threshold"
+                        value="{{ settings.push_score_threshold }}" min="0" max="100" step="5">
+                    <span class="unit">分</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 登录设置 -->
+        <section class="settings-section">
+            <h2>🔐 登录设置</h2>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <label for="remember_me_days">记住登录天数</label>
+                    <p class="setting-desc">勾选"记住我"后 Cookie 的有效期</p>
+                </div>
+                <div class="setting-control">
+                    <input type="number" id="remember_me_days" name="remember_me_days"
+                        value="{{ settings.remember_me_days }}" min="1" max="365">
+                    <span class="unit">天</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分析设置 -->
+        <section class="settings-section">
+            <h2>🔍 分析设置</h2>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <label for="window_days">分析窗口天数</label>
+                    <p class="setting-desc">每次运行时回溯多少天的文章进行分析</p>
+                </div>
+                <div class="setting-control">
+                    <input type="number" id="window_days" name="window_days" value="{{ settings.window_days }}" min="1"
+                        max="7">
+                    <span class="unit">天</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 定时任务（只读） -->
+        <section class="settings-section">
+            <h2>⏰ 定时任务</h2>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <label>调度时间点</label>
+                    <p class="setting-desc">系统每天在这些时间点自动运行分析任务</p>
+                </div>
+                <div class="setting-control readonly">
+                    <div class="schedule-slots">
+                        {% for slot in settings.schedule_slots %}
+                        <span class="slot-badge">{{ slot }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <p class="setting-note">
+                💡 修改调度时间需要编辑 <code>celery_app.py</code> 并重启 Beat 服务
+            </p>
+        </section>
+
+        <!-- 保存按钮 -->
+        <div class="form-actions">
+            <button type="submit" class="btn-save">💾 保存设置</button>
+            <button type="reset" class="btn-reset">↩️ 重置</button>
+        </div>
+    </form>
+
+    <!-- 系统信息 -->
+    <section class="settings-section info-section">
+        <h2>ℹ️ 系统信息</h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">版本</span>
+                <span class="info-value">v0.1.0</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Python</span>
+                <span class="info-value">3.11</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">数据库</span>
+                <span class="info-value">PostgreSQL</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">缓存</span>
+                <span class="info-value">Redis</span>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.getElementById('settingsForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const data = {};
+        formData.forEach((value, key) => {
+            data[key] = parseInt(value) || value;
+        });
+
+        try {
+            const response = await fetch('/api/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            if (response.ok) {
+                alert('设置已保存');
+            } else {
+                const err = await response.json();
+                alert('保存失败: ' + (err.detail || '未知错误'));
+            }
+        } catch (error) {
+            alert('保存失败: ' + error.message);
+        }
+    });
+</script>
+{% endblock %}
