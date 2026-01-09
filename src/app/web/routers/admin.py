@@ -8,7 +8,7 @@
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -429,9 +429,12 @@ async def update_analysis_status(
     return {"status": "success", "analysis_id": analysis_id, "action_status": status_data.action_status}
 
 
+
+
 @router.post("/run-now")
 async def run_analysis_now(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """手动触发立即分析"""
@@ -440,8 +443,9 @@ async def run_analysis_now(
     # 获取当前时间 HH:MM
     now_str = datetime.now().strftime("%H:%M")
     
-    # 异步触发任务
     logger.info(f"用户 {user.username} 手动触发立即分析: {now_str}")
-    run_slot.delay(slot=now_str, manual=True)
     
-    return {"status": "success", "message": f"分析任务已启动 ({now_str})"}
+    # 使用 BackgroundTasks 在 Web 容器直接运行，绕过 Celery
+    background_tasks.add_task(run_slot, slot=now_str, manual=True)
+    
+    return {"status": "success", "message": "分析任务已在后台启动"}
