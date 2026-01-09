@@ -52,9 +52,9 @@ class PromptVersion(Base):
     name: Mapped[str] = mapped_column(String(64), nullable=False)  # opportunity_analyzer / daily_digest
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    threshold: Mapped[int] = mapped_column(Integer, default=60, nullable=False)
+    threshold: Mapped[Optional[int]] = mapped_column(Integer, default=60, nullable=True)
     prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
-    response_schema: Mapped[dict] = mapped_column(JSON, nullable=False)
+    response_schema: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
     # 关联
@@ -130,7 +130,7 @@ class AnalysisResult(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     content_item_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("content_item.id", ondelete="CASCADE"), nullable=False)
     run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("slot_run.id", ondelete="SET NULL"))
-    prompt_version_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("prompt_version.id"), nullable=False)
+    prompt_version_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("prompt_version.id"), nullable=True)
     model: Mapped[str] = mapped_column(String(64), default="deepseek-reasoner", nullable=False)
     score: Mapped[int] = mapped_column(Integer, nullable=False)
     has_opportunity: Mapped[bool] = mapped_column(Boolean, nullable=False)
