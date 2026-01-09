@@ -211,6 +211,8 @@ async def daily_report(
         "request": request,
         "user": user,
         "report_date": parsed_date,
+        "prev_date": (parsed_date - timedelta(days=1)).isoformat(),
+        "next_date": (parsed_date + timedelta(days=1)).isoformat(),
         "report": report,
         "slots": slots,
         "analyses": analyses,

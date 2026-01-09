@@ -7,9 +7,9 @@
     <!-- 日报头部 -->
     <header class="daily-header">
         <div class="date-nav">
-            <a href="/daily/{{ (report_date - timedelta(days=1)).isoformat() }}" class="nav-arrow">← 前一天</a>
+            <a href="/daily/{{ prev_date }}" class="nav-arrow">← 前一天</a>
             <h1>📊 {{ report_date.strftime('%Y年%m月%d日') }} 日报</h1>
-            <a href="/daily/{{ (report_date + timedelta(days=1)).isoformat() }}" class="nav-arrow">后一天 →</a>
+            <a href="/daily/{{ next_date }}" class="nav-arrow">后一天 →</a>
         </div>
 
         <!-- 今日结论 -->
