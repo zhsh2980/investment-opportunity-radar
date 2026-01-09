@@ -170,6 +170,15 @@ async def analysis_detail(
     })
 
 
+# ===== 日报页重定向 =====
+@router.get("/daily", response_class=HTMLResponse)
+@router.get("/daily/", response_class=HTMLResponse)
+async def daily_redirect(request: Request, db: Session = Depends(get_db)):
+    """重定向到今日日报"""
+    today = date.today().isoformat()
+    return RedirectResponse(url=f"/daily/{today}", status_code=303)
+
+
 # ===== 当日日报页 =====
 @router.get("/daily/{report_date}", response_class=HTMLResponse)
 async def daily_report(
