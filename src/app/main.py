@@ -33,6 +33,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# 强制浏览器不缓存 HTML (解决用户开发期间看不到更新的问题)
+@app.middleware("http")
+async def add_no_cache_header(request: Request, call_next):
+    response = await call_next(request)
+    if response.headers.get("content-type", "").startswith("text/html"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 # 静态文件
 app.mount("/static", StaticFiles(directory="src/app/web/static"), name="static")
 
