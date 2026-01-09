@@ -10,14 +10,14 @@
 
         <!-- Header Card -->
         <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-            <div class="flex items-start justify-between">
-                <div class="pr-4">
+            <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div class="pr-0 md:pr-4">
                     <span
                         class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 mb-2">
                         分析报告 #{{ analysis.id }}
                     </span>
                     <h1 class="text-xl font-bold text-slate-900 leading-snug">{{ content_item.title }}</h1>
-                    <div class="flex items-center gap-2 mt-2 text-sm text-slate-500">
+                    <div class="flex flex-wrap items-center gap-2 mt-2 text-sm text-slate-500">
                         <span>{{ content_item.mp_name or '未知来源' }}</span>
                         <span>•</span>
                         <span>{{ content_item.published_at.strftime('%Y-%m-%d %H:%M') }}</span>
