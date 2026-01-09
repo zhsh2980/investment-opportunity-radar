@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}投资机会雷达{% endblock %}</title>
+    <meta name="description" content="投资机会雷达 - 智能分析公众号文章中的投资机会">
+    <link rel="stylesheet" href="/static/app.css">
+    <link rel="stylesheet" href="/static/pages.css">
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+    {% if user %}
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="/">📡 投资机会雷达</a>
+        </div>
+        <div class="nav-menu">
+            <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">首页</a>
+            <a href="/daily/{{ today or '' }}"
+                class="nav-link {% if '/daily/' in request.url.path %}active{% endif %}">今日日报</a>
+            <a href="/history" class="nav-link {% if request.url.path == '/history' %}active{% endif %}">历史</a>
+        </div>
+        <div class="nav-user">
+            <span class="user-name">👤 {{ user.username }}</span>
+            <form action="/api/auth/logout" method="POST" style="display:inline;">
+                <button type="submit" class="btn-logout">退出</button>
+            </form>
+        </div>
+        <button class="nav-toggle" onclick="toggleMobileMenu()">☰</button>
+    </nav>
+    <div class="mobile-menu" id="mobileMenu">
+        <a href="/" class="mobile-link">首页</a>
+        <a href="/daily/{{ today or '' }}" class="mobile-link">今日日报</a>
+        <a href="/history" class="mobile-link">历史</a>
+        <form action="/api/auth/logout" method="POST">
+            <button type="submit" class="mobile-link logout">退出登录</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>Investment Opportunity Radar v0.1.0</p>
+    </footer>
+
+    <script src="/static/app.js"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+
+</html>

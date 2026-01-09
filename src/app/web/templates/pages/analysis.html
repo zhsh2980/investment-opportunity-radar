@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}{{ content_item.title[:30] }} - 分析详情{% endblock %}
+
+{% block content %}
+<div class="analysis-page">
+    <div class="analysis-layout">
+        <!-- 左栏：分析结论 -->
+        <div class="analysis-left">
+            <!-- 顶部信息 -->
+            <div class="analysis-header">
+                <div
+                    class="score-display score-{{ 'high' if analysis.score >= 80 else ('medium' if analysis.score >= 60 else 'low') }}">
+                    <span class="score-number">{{ analysis.score }}</span>
+                    <span class="score-label">分</span>
+                </div>
+                <div class="header-info">
+                    <h1>{{ content_item.title }}</h1>
+                    <div class="meta-info">
+                        <span class="mp-name">📰 {{ content_item.mp_name or '未知公众号' }}</span>
+                        <span class="pub-time">🕐 {{ content_item.published_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    </div>
+                    {% if result.opportunity_types %}
+                    <div class="type-tags">
+                        {% for t in result.opportunity_types %}
+                        <span class="type-tag">{{ t }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 一句话结论 -->
+            <div class="section-block summary-block">
+                <h3>📌 一句话结论</h3>
+                <p class="summary-text">{{ result.summary or analysis.summary_md }}</p>
+            </div>
+
+            <!-- 行动步骤 -->
+            {% if result.opportunities %}
+            {% for opp in result.opportunities %}
+            <div class="section-block action-block">
+                <h3>🎯 {{ opp.title }}</h3>
+
+                {% if opp.action_steps %}
+                <div class="subsection">
+                    <h4>行动步骤</h4>
+                    <ol class="action-steps">
+                        {% for step in opp.action_steps %}
+                        <li>{{ step }}</li>
+                        {% endfor %}
+                    </ol>
+                </div>
+                {% endif %}
+
+                {% if opp.time_window %}
+                <div class="subsection time-window">
+                    <h4>⏰ 时间窗口</h4>
+                    <p>
+                        {% if opp.time_window.start %}
+                        {{ opp.time_window.start[:16] }} ~ {{ opp.time_window.end[:16] if opp.time_window.end else '待定'
+                        }}
+                        {% else %}
+                        需核验
+                        {% endif %}
+                        <span class="confidence">(置信度: {{ (opp.time_window.confidence * 100)|int if
+                            opp.time_window.confidence else '?' }}%)</span>
+                    </p>
+                </div>
+                {% endif %}
+
+                {% if opp.key_numbers %}
+                <div class="subsection key-numbers">
+                    <h4>🔢 关键参数</h4>
+                    <ul>
+                        {% for key, value in opp.key_numbers.items() %}
+                        <li><strong>{{ key }}:</strong> {{ value }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                {% if opp.constraints %}
+                <div class="subsection constraints">
+                    <h4>⚠️ 约束条件</h4>
+                    <ul>
+                        {% for c in opp.constraints %}
+                        <li>{{ c }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            <!-- 风险提示 -->
+            {% if result.risk_warnings %}
+            <div class="section-block risk-block">
+                <h3>🚨 风险提示</h3>
+                <ul class="risk-list">
+                    {% for risk in result.risk_warnings %}
+                    <li>{{ risk }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- 核验清单 -->
+            {% if result.opportunities and result.opportunities[0].verification_checklist %}
+            <div class="section-block verify-block">
+                <h3>✅ 核验清单</h3>
+                <div class="verify-list">
+                    {% for item in result.opportunities[0].verification_checklist %}
+                    <label class="verify-item">
+                        <input type="checkbox">
+                        <span>{{ item }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 建议搜索 -->
+            {% if result.opportunities and result.opportunities[0].search_suggestions %}
+            <div class="section-block search-block">
+                <h3>🔍 建议搜索</h3>
+                <div class="search-suggestions">
+                    {% for q in result.opportunities[0].search_suggestions %}
+                    <div class="search-item">
+                        <span>{{ q }}</span>
+                        <button class="btn-copy" onclick="copyText('{{ q }}')">复制</button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 证据摘录 -->
+            {% if result.evidence %}
+            <div class="section-block evidence-block">
+                <h3>📝 原文证据</h3>
+                {% for e in result.evidence %}
+                <blockquote class="evidence-quote">
+                    "{{ e.quote }}"
+                    <cite>— {{ e.location_hint }}</cite>
+                </blockquote>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 右栏：原文 -->
+        <div class="analysis-right">
+            <div class="original-header">
+                <h2>📄 原文内容</h2>
+                {% if content_item.url %}
+                <a href="{{ content_item.url }}" target="_blank" class="btn-external">打开原文 ↗</a>
+                {% endif %}
+            </div>
+            <div class="original-content">
+                {% if content_item.raw_html %}
+                {{ content_item.raw_html | safe }}
+                {% elif content_item.raw_text %}
+                <pre>{{ content_item.raw_text }}</pre>
+                {% else %}
+                <p class="no-content">暂无原文内容</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function copyText(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert('已复制: ' + text);
+        });
+    }
+</script>
+{% endblock %}

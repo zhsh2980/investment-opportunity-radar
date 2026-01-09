@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}控制台 - 投资机会雷达{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- 今日概览卡片 -->
+    <section class="overview-section">
+        <div class="overview-cards">
+            <!-- 今日结论卡 -->
+            <div
+                class="card conclusion-card {% if opportunities_count > 0 %}has-opportunity{% else %}no-opportunity{% endif %}">
+                <div class="card-icon">
+                    {% if opportunities_count > 0 %}🎯{% else %}📭{% endif %}
+                </div>
+                <div class="card-content">
+                    <h3>今日结论</h3>
+                    {% if opportunities_count > 0 %}
+                    <p class="highlight">发现 <strong>{{ opportunities_count }}</strong> 个机会</p>
+                    <p class="sub">最高评分: <strong>{{ max_score }}</strong> 分</p>
+                    {% else %}
+                    <p class="muted">暂无投资机会</p>
+                    <p class="sub">阈值: {{ threshold }} 分</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 任务进度卡 -->
+            <div class="card progress-card">
+                <div class="card-icon">📊</div>
+                <div class="card-content">
+                    <h3>今日任务</h3>
+                    <div class="slots-progress">
+                        {% for slot, info in slots_status.items() %}
+                        <div class="slot-item {{ info.status }}">
+                            <span class="slot-time">{{ slot }}</span>
+                            <span class="slot-dot"></span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <p class="sub">已分析 {{ total_analyzed }} 篇</p>
+                </div>
+            </div>
+
+            <!-- 快速入口卡 -->
+            <div class="card quick-card">
+                <div class="card-icon">🚀</div>
+                <div class="card-content">
+                    <h3>快速入口</h3>
+                    <div class="quick-links">
+                        <a href="/daily/{{ today }}" class="quick-link">📅 今日日报</a>
+                        <a href="/history" class="quick-link">📚 历史记录</a>
+                        <a href="/healthz" target="_blank" class="quick-link">❤️ 健康检查</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 今日机会列表 -->
+    {% if opportunities %}
+    <section class="section">
+        <h2 class="section-title">🎯 今日机会</h2>
+        <div class="opportunity-list">
+            {% for analysis in opportunities %}
+            <a href="/analysis/{{ analysis.id }}" class="opportunity-card">
+                <div
+                    class="opp-score score-{{ 'high' if analysis.score >= 80 else ('medium' if analysis.score >= 60 else 'low') }}">
+                    {{ analysis.score }}
+                </div>
+                <div class="opp-content">
+                    <h4>{{ analysis.content_item.title }}</h4>
+                    <p class="opp-meta">
+                        <span class="mp-name">{{ analysis.content_item.mp_name or '未知公众号' }}</span>
+                        <span class="pub-time">{{ analysis.content_item.published_at.strftime('%m-%d %H:%M') }}</span>
+                    </p>
+                    <p class="opp-summary">{{ analysis.summary_md[:100] }}...</p>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- 最近分析 -->
+    <section class="section">
+        <h2 class="section-title">📝 最近分析</h2>
+        {% if recent_analyses %}
+        <div class="analysis-table-wrapper">
+            <table class="analysis-table">
+                <thead>
+                    <tr>
+                        <th>评分</th>
+                        <th>标题</th>
+                        <th>公众号</th>
+                        <th>时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analysis in recent_analyses %}
+                    <tr
+                        class="{% if analysis.has_opportunity and analysis.score >= threshold %}row-opportunity{% endif %}">
+                        <td>
+                            <span
+                                class="score-badge score-{{ 'high' if analysis.score >= 80 else ('medium' if analysis.score >= 60 else 'low') }}">
+                                {{ analysis.score }}
+                            </span>
+                        </td>
+                        <td class="title-cell">{{ analysis.content_item.title[:40] }}{% if
+                            analysis.content_item.title|length > 40 %}...{% endif %}</td>
+                        <td>{{ analysis.content_item.mp_name or '-' }}</td>
+                        <td>{{ analysis.content_item.published_at.strftime('%m-%d %H:%M') }}</td>
+                        <td>
+                            <a href="/analysis/{{ analysis.id }}" class="btn-view">查看</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>暂无分析结果</p>
+            <p class="hint">当 WeRSS 有新文章时，系统会自动分析</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

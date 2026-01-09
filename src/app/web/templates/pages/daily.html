@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}{{ report_date }} 日报 - 投资机会雷达{% endblock %}
+
+{% block content %}
+<div class="daily-page">
+    <!-- 日报头部 -->
+    <header class="daily-header">
+        <div class="date-nav">
+            <a href="/daily/{{ (report_date - timedelta(days=1)).isoformat() }}" class="nav-arrow">← 前一天</a>
+            <h1>📊 {{ report_date.strftime('%Y年%m月%d日') }} 日报</h1>
+            <a href="/daily/{{ (report_date + timedelta(days=1)).isoformat() }}" class="nav-arrow">后一天 →</a>
+        </div>
+
+        <!-- 今日结论 -->
+        <div class="daily-conclusion {% if opportunities %}has-opp{% else %}no-opp{% endif %}">
+            {% if opportunities %}
+            <div class="conclusion-icon">🎯</div>
+            <div class="conclusion-text">
+                <h2>发现 {{ opportunities|length }} 个投资机会</h2>
+                <p>最高评分: {{ opportunities[0].score if opportunities else 0 }} 分</p>
+            </div>
+            {% else %}
+            <div class="conclusion-icon">📭</div>
+            <div class="conclusion-text">
+                <h2>今日无投资机会</h2>
+                <p>阈值: {{ threshold }} 分</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Slot 进度 -->
+        <div class="slots-progress-bar">
+            {% set slot_labels = {'07:00': 1, '12:00': 2, '14:00': 3, '18:00': 4, '22:00': 5} %}
+            {% for slot_label in ['07:00', '12:00', '14:00', '18:00', '22:00'] %}
+            {% set slot_done = slots | selectattr('slot', 'equalto', slot_label) | selectattr('status', 'equalto', 1) |
+            list %}
+            <div class="slot-progress-item {% if slot_done %}done{% else %}pending{% endif %}">
+                <span class="slot-label">{{ slot_label }}</span>
+                <span class="slot-status">{% if slot_done %}✓{% else %}○{% endif %}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </header>
+
+    <!-- 浓缩资讯 -->
+    {% if report and report.digest_md %}
+    <section class="digest-section">
+        <h2 class="section-title">📋 浓缩资讯</h2>
+        <div class="digest-content markdown-body">
+            {{ report.digest_md | safe }}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- 今日机会 Top 3 -->
+    {% if opportunities %}
+    <section class="top-opportunities-section">
+        <h2 class="section-title">🎯 今日机会 Top {{ [opportunities|length, 3]|min }}</h2>
+        <div class="opportunity-cards">
+            {% for analysis in opportunities[:3] %}
+            <a href="/analysis/{{ analysis.id }}" class="opp-card">
+                <div
+                    class="opp-card-score score-{{ 'high' if analysis.score >= 80 else ('medium' if analysis.score >= 60 else 'low') }}">
+                    {{ analysis.score }}
+                </div>
+                <div class="opp-card-body">
+                    <h4>{{ analysis.content_item.title[:50] }}{% if analysis.content_item.title|length > 50 %}...{%
+                        endif %}</h4>
+                    <p class="meta">{{ analysis.content_item.mp_name or '未知' }} · {{
+                        analysis.content_item.published_at.strftime('%H:%M') }}</p>
+                    <p class="summary">{{ analysis.summary_md[:80] }}...</p>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- 全量分析列表 -->
+    <section class="all-analyses-section">
+        <h2 class="section-title">📝 全部分析（{{ analyses|length }} 篇）</h2>
+
+        {% if analyses %}
+        <div class="filter-bar">
+            <label>
+                <input type="checkbox" id="onlyOpportunities" onchange="filterAnalyses()">
+                仅看机会
+            </label>
+        </div>
+
+        <div class="analysis-list" id="analysisList">
+            {% for analysis in analyses %}
+            <div class="analysis-row {% if analysis.has_opportunity and analysis.score >= threshold %}is-opportunity{% endif %}"
+                data-score="{{ analysis.score }}"
+                data-opportunity="{{ 'true' if analysis.has_opportunity and analysis.score >= threshold else 'false' }}">
+                <div
+                    class="row-score score-{{ 'high' if analysis.score >= 80 else ('medium' if analysis.score >= 60 else 'low') }}">
+                    {{ analysis.score }}
+                </div>
+                <div class="row-content">
+                    <h4>{{ analysis.content_item.title }}</h4>
+                    <p class="row-meta">
+                        {{ analysis.content_item.mp_name or '未知' }} ·
+                        {{ analysis.content_item.published_at.strftime('%H:%M') }}
+                    </p>
+                </div>
+                <a href="/analysis/{{ analysis.id }}" class="row-link">查看 →</a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>当日暂无分析结果</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function filterAnalyses() {
+        const onlyOpp = document.getElementById('onlyOpportunities').checked;
+        const rows = document.querySelectorAll('.analysis-row');
+        rows.forEach(row => {
+            if (onlyOpp && row.dataset.opportunity !== 'true') {
+                row.style.display = 'none';
+            } else {
+                row.style.display = 'flex';
+            }
+        });
+    }
+</script>
+{% endblock %}

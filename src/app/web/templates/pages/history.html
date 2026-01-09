@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}历史记录 - 投资机会雷达{% endblock %}
+
+{% block content %}
+<div class="history-page">
+    <header class="page-header">
+        <h1>📚 历史记录</h1>
+    </header>
+
+    <!-- 筛选区 -->
+    <section class="filter-section">
+        <form method="GET" action="/history" class="filter-form">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>开始日期</label>
+                    <input type="date" name="start_date" value="{{ start_date }}">
+                </div>
+                <div class="filter-group">
+                    <label>结束日期</label>
+                    <input type="date" name="end_date" value="{{ end_date }}">
+                </div>
+                <div class="filter-group">
+                    <label>最低评分</label>
+                    <input type="number" name="min_score" value="{{ min_score }}" min="0" max="100" step="10">
+                </div>
+                <div class="filter-group">
+                    <label>关键词</label>
+                    <input type="text" name="keyword" value="{{ keyword }}" placeholder="标题/公众号">
+                </div>
+                <div class="filter-group">
+                    <button type="submit" class="btn-filter">搜索</button>
+                </div>
+            </div>
+        </form>
+    </section>
+
+    <!-- 结果列表 -->
+    <section class="results-section">
+        <p class="results-count">共 {{ analyses|length }} 条结果</p>
+
+        {% if analyses %}
+        <div class="history-table-wrapper">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>评分</th>
+                        <th>机会</th>
+                        <th>标题</th>
+                        <th>公众号</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analysis in analyses %}
+                    <tr>
+                        <td>{{ analysis.content_item.published_at.strftime('%m-%d') }}</td>
+                        <td>
+                            <span
+                                class="score-badge score-{{ 'high' if analysis.score >= 80 else ('medium' if analysis.score >= 60 else 'low') }}">
+                                {{ analysis.score }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if analysis.has_opportunity %}
+                            <span class="tag-opportunity">是</span>
+                            {% else %}
+                            <span class="tag-none">否</span>
+                            {% endif %}
+                        </td>
+                        <td class="title-cell">
+                            {{ analysis.content_item.title[:40] }}{% if analysis.content_item.title|length > 40 %}...{%
+                            endif %}
+                        </td>
+                        <td>{{ analysis.content_item.mp_name or '-' }}</td>
+                        <td>
+                            <a href="/analysis/{{ analysis.id }}" class="btn-view">查看</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>没有找到匹配的记录</p>
+            <p class="hint">尝试调整筛选条件</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
