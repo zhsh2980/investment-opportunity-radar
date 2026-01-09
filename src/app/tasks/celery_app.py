@@ -17,6 +17,52 @@ app = Celery(
     backend=settings.redis_url,
 )
 
+
+def get_schedule_slots_from_db():
+    """
+    从数据库读取 schedule_slots 配置
+    如果不存在则返回默认值
+    """
+    from ..database import SessionLocal
+    from ..domain.models import Settings
+    
+    default_slots = ["07:00", "12:00", "14:00", "18:00", "22:00"]
+    
+    try:
+        session = SessionLocal()
+        setting = session.query(Settings).filter(Settings.key == "schedule_slots").first()
+        session.close()
+        
+        if setting and setting.value_json:
+            return setting.value_json
+        return default_slots
+    except Exception:
+        return default_slots
+
+
+def build_beat_schedule(slots: list) -> dict:
+    """
+    根据 slots 列表动态生成 beat_schedule
+    """
+    schedule = {}
+    for slot in slots:
+        try:
+            hour, minute = map(int, slot.split(":"))
+            schedule[f"slot-{slot}"] = {
+                "task": "src.app.tasks.slot.run_slot",
+                "schedule": crontab(hour=hour, minute=minute),
+                "args": (slot,),
+            }
+        except ValueError:
+            continue  # 跳过格式不正确的 slot
+    return schedule
+
+
+# 从数据库获取 slots 并生成调度
+schedule_slots = get_schedule_slots_from_db()
+beat_schedule = build_beat_schedule(schedule_slots)
+
+
 # 配置
 app.conf.update(
     # 时区设置（北京时间）
@@ -44,40 +90,10 @@ app.conf.update(
         "src.app.tasks.analysis.*": {"queue": "analysis"},
     },
     
-    # 定时任务（Celery Beat）
-    beat_schedule={
-        # 每天 07:00 触发
-        "slot-07:00": {
-            "task": "src.app.tasks.slot.run_slot",
-            "schedule": crontab(hour=7, minute=0),
-            "args": ("07:00",),
-        },
-        # 每天 12:00 触发
-        "slot-12:00": {
-            "task": "src.app.tasks.slot.run_slot",
-            "schedule": crontab(hour=12, minute=0),
-            "args": ("12:00",),
-        },
-        # 每天 14:00 触发
-        "slot-14:00": {
-            "task": "src.app.tasks.slot.run_slot",
-            "schedule": crontab(hour=14, minute=0),
-            "args": ("14:00",),
-        },
-        # 每天 18:00 触发
-        "slot-18:00": {
-            "task": "src.app.tasks.slot.run_slot",
-            "schedule": crontab(hour=18, minute=0),
-            "args": ("18:00",),
-        },
-        # 每天 22:00 触发（必推日报）
-        "slot-22:00": {
-            "task": "src.app.tasks.slot.run_slot",
-            "schedule": crontab(hour=22, minute=0),
-            "args": ("22:00",),
-        },
-    },
+    # 定时任务（Celery Beat）- 动态生成
+    beat_schedule=beat_schedule,
 )
 
 # 自动发现任务
 app.autodiscover_tasks(["src.app.tasks"])
+

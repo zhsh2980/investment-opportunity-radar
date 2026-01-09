@@ -77,6 +77,33 @@ def get_or_create_slot_run(session, run_date: date, slot: str) -> tuple[SlotRun,
     return slot_run, True
 
 
+def is_last_slot_of_day(session, current_slot: str) -> bool:
+    """
+    判断当前 slot 是否为当天最后一个时间点
+    
+    从数据库读取 schedule_slots 配置，按时间排序后判断
+    """
+    from ..domain.models import Settings
+    
+    # 默认值
+    default_slots = ["07:00", "12:00", "14:00", "18:00", "22:00"]
+    
+    # 从数据库读取
+    setting = session.query(Settings).filter(Settings.key == "schedule_slots").first()
+    if setting and setting.value_json:
+        slots = setting.value_json
+    else:
+        slots = default_slots
+    
+    # 按时间排序
+    sorted_slots = sorted(slots)
+    
+    # 判断是否为最后一个
+    if sorted_slots:
+        return current_slot == sorted_slots[-1]
+    return False
+
+
 @shared_task(bind=True, max_retries=2, default_retry_delay=60)
 def run_slot(self, slot: str):
     """
@@ -168,8 +195,11 @@ def run_slot(self, slot: str):
             # 5. 推送逻辑
             base_url = f"http://154.8.205.159:8080"  # TODO: 从配置读取
             
-            if slot == "22:00":
-                # 22:00 必推日报
+            # 判断是否为当天最后一个时间点（动态获取）
+            is_last_slot = is_last_slot_of_day(session, slot)
+            
+            if is_last_slot:
+                # 最后一个时间点必推日报
                 success = generate_and_push_daily_report(
                     session=session,
                     run_date=run_date,
@@ -178,7 +208,7 @@ def run_slot(self, slot: str):
                 )
                 stats["pushed"] = success
             else:
-                # 前 4 次：有机会才推
+                # 其他时间点：有机会才推
                 pushed = False
                 for analysis in new_analyses:
                     if should_push_opportunity(session, analysis, str(run_date), slot):

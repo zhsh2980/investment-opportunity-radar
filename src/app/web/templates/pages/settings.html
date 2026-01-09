@@ -85,25 +85,47 @@
             </div>
         </div>
 
-        <!-- System Info (Readonly) -->
-        <div class="bg-slate-50 rounded-lg border border-slate-200 shadow-sm p-6">
+        <!-- Schedule Slots (Editable) -->
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
             <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                ⏰ 自动调度
-            </h2>
-            <div class="flex flex-wrap gap-2 mb-4">
-                {% for slot in settings.schedule_slots %}
                 <span
-                    class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white border border-slate-200 text-slate-700">
-                    {{ slot }}
-                </span>
+                    class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">⏰</span>
+                自动调度
+            </h2>
+            <p class="text-sm text-slate-500 mb-4">配置每天的分析时间点。最后一个时间点会自动发送日报汇总。</p>
+
+            <div id="scheduleSlotsContainer" class="flex flex-wrap gap-2 mb-4">
+                {% for slot in settings.schedule_slots %}
+                <div
+                    class="slot-item inline-flex items-center gap-1 bg-slate-50 rounded-lg px-2 py-1 border border-slate-200">
+                    <input type="time" value="{{ slot }}"
+                        class="slot-input bg-transparent border-0 text-sm font-medium text-slate-700 w-20 focus:ring-0 focus:outline-none"
+                        onchange="sortSlots()">
+                    <button type="button" onclick="removeSlot(this)"
+                        class="text-slate-400 hover:text-red-500 transition-colors p-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
                 {% endfor %}
             </div>
-            <p class="text-xs text-slate-500 flex items-center gap-1">
+
+            <button type="button" onclick="addSlot()"
+                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                添加时间点
+            </button>
+
+            <p class="text-xs text-amber-600 mt-4 flex items-center gap-1">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                修改调度时间需要编辑 <code>config.py</code> 或 <code>celery_app.py</code> 并重启服务。
+                修改后需重启调度服务（radar-beat）才能生效
             </p>
         </div>
 
@@ -143,6 +165,61 @@
 
 {% block extra_scripts %}
 <script>
+    // ===== 调度时间点管理 =====
+    function getScheduleSlots() {
+        const inputs = document.querySelectorAll('#scheduleSlotsContainer .slot-input');
+        const slots = [];
+        inputs.forEach(input => {
+            if (input.value) {
+                // 将 HH:MM:SS 格式转换为 HH:MM
+                const val = input.value.substring(0, 5);
+                slots.push(val);
+            }
+        });
+        return slots;
+    }
+
+    function sortSlots() {
+        const container = document.getElementById('scheduleSlotsContainer');
+        const items = Array.from(container.querySelectorAll('.slot-item'));
+        items.sort((a, b) => {
+            const timeA = a.querySelector('.slot-input').value;
+            const timeB = b.querySelector('.slot-input').value;
+            return timeA.localeCompare(timeB);
+        });
+        items.forEach(item => container.appendChild(item));
+    }
+
+    function addSlot() {
+        const container = document.getElementById('scheduleSlotsContainer');
+        const div = document.createElement('div');
+        div.className = 'slot-item inline-flex items-center gap-1 bg-slate-50 rounded-lg px-2 py-1 border border-slate-200';
+        div.innerHTML = `
+            <input type="time" value="12:00" 
+                   class="slot-input bg-transparent border-0 text-sm font-medium text-slate-700 w-20 focus:ring-0 focus:outline-none"
+                   onchange="sortSlots()">
+            <button type="button" onclick="removeSlot(this)" 
+                    class="text-slate-400 hover:text-red-500 transition-colors p-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        `;
+        container.appendChild(div);
+        sortSlots();
+    }
+
+    function removeSlot(btn) {
+        const container = document.getElementById('scheduleSlotsContainer');
+        const items = container.querySelectorAll('.slot-item');
+        if (items.length <= 1) {
+            alert('至少需要保留一个时间点');
+            return;
+        }
+        btn.closest('.slot-item').remove();
+    }
+
+    // ===== 表单提交 =====
     document.getElementById('settingsForm').addEventListener('submit', async function (e) {
         e.preventDefault();
 
@@ -151,6 +228,14 @@
         formData.forEach((value, key) => {
             data[key] = parseInt(value) || value;
         });
+
+        // 添加 schedule_slots
+        data.schedule_slots = getScheduleSlots();
+
+        if (data.schedule_slots.length === 0) {
+            alert('请至少配置一个调度时间点');
+            return;
+        }
 
         try {
             const btn = this.querySelector('button[type="submit"]');
@@ -167,8 +252,7 @@
             });
 
             if (response.ok) {
-                // Toast would be better, but alert is fine for now
-                alert('系统设置已成功保存');
+                alert('系统设置已保存！\\n\\n调度时间修改需重启 radar-beat 服务才能生效。');
             } else {
                 const err = await response.json();
                 alert('保存失败: ' + (err.detail || '未知错误'));

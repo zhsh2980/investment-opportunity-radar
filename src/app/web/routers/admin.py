@@ -6,7 +6,7 @@
 - Prompt 管理 API
 """
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -54,6 +54,7 @@ class SettingsUpdate(BaseModel):
     push_score_threshold: Optional[int] = None
     remember_me_days: Optional[int] = None
     window_days: Optional[int] = None
+    schedule_slots: Optional[List[str]] = None
 
 
 @router.post("/settings")

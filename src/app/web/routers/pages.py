@@ -95,13 +95,13 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         SlotRun.run_date == today
     ).all()
     
-    slots_status = {
-        "07:00": {"status": "pending", "label": "未运行"},
-        "12:00": {"status": "pending", "label": "未运行"},
-        "14:00": {"status": "pending", "label": "未运行"},
-        "18:00": {"status": "pending", "label": "未运行"},
-        "22:00": {"status": "pending", "label": "未运行"},
-    }
+    # 从数据库动态获取配置的 schedule_slots
+    schedule_slots = get_setting_value(db, "schedule_slots", ["07:00", "12:00", "14:00", "18:00", "22:00"])
+    
+    # 初始化 slots 状态
+    slots_status = {}
+    for slot in schedule_slots:
+        slots_status[slot] = {"status": "pending", "label": "未运行"}
     
     for slot in today_slots:
         if slot.status == 1:
