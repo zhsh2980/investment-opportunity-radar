@@ -67,6 +67,7 @@ async def update_settings(
     user = get_current_user(request, db)
     
     updates = settings_data.dict(exclude_none=True)
+    schedule_slots_changed = "schedule_slots" in updates
     
     for key, value in updates.items():
         # 查找或创建设置
@@ -81,7 +82,30 @@ async def update_settings(
     db.commit()
     logger.info(f"用户 {user.username} 更新了设置: {updates}")
     
-    return {"status": "success", "updated": list(updates.keys())}
+    # 如果修改了 schedule_slots，自动重启 beat 容器使调度生效
+    beat_restarted = False
+    if schedule_slots_changed:
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["docker", "restart", "radar-beat"],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode == 0:
+                beat_restarted = True
+                logger.info("已自动重启 radar-beat 容器，调度配置已生效")
+            else:
+                logger.warning(f"重启 radar-beat 失败: {result.stderr}")
+        except Exception as e:
+            logger.warning(f"重启 radar-beat 异常: {e}")
+    
+    return {
+        "status": "success", 
+        "updated": list(updates.keys()),
+        "beat_restarted": beat_restarted
+    }
 
 
 @router.get("/settings")
