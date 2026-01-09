@@ -85,10 +85,11 @@ async function handleLogin(event) {
 
 /**
  * 切换移动端导航菜单
+ * 挂载到 window 对象以确保 onclick 属性可以访问
  */
-function toggleMobileMenu() {
+window.toggleMobileMenu = function () {
     const menu = document.getElementById('mobileMenu');
     if (menu) {
         menu.classList.toggle('hidden');
     }
-}
+};
