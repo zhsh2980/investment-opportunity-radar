@@ -251,10 +251,15 @@
             });
 
             if (response.ok) {
-                alert('系统设置已保存！\\n\\n调度时间修改需重启 radar-beat 服务才能生效。');
+                const result = await response.json();
+                if (result.beat_restarted) {
+                    alert('✅ 系统设置已保存！\n\n调度服务已自动重启，配置立即生效。');
+                } else {
+                    alert('✅ 系统设置已保存！');
+                }
             } else {
                 const err = await response.json();
-                alert('保存失败: ' + (err.detail || '未知错误'));
+                alert('❌ 保存失败: ' + (err.detail || '未知错误'));
             }
 
             btn.disabled = false;
