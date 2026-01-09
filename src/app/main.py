@@ -34,13 +34,24 @@ app = FastAPI(
 )
 
 # 强制浏览器不缓存 HTML (解决用户开发期间看不到更新的问题)
+# 同时为 JS/CSS 文件添加正确的 UTF-8 编码声明
 @app.middleware("http")
-async def add_no_cache_header(request: Request, call_next):
+async def add_response_headers(request: Request, call_next):
     response = await call_next(request)
-    if response.headers.get("content-type", "").startswith("text/html"):
+    content_type = response.headers.get("content-type", "")
+    
+    # HTML 不缓存
+    if content_type.startswith("text/html"):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+    
+    # JS/CSS 文件添加 UTF-8 编码
+    if "javascript" in content_type and "charset" not in content_type:
+        response.headers["Content-Type"] = "application/javascript; charset=utf-8"
+    elif "text/css" in content_type and "charset" not in content_type:
+        response.headers["Content-Type"] = "text/css; charset=utf-8"
+    
     return response
 
 # 静态文件
