@@ -96,16 +96,36 @@
         </div>
 
         <!-- Mobile Menu (Dropdown) -->
-        <div id="mobileMenu" class="hidden md:hidden border-t border-slate-200 bg-white">
+        <div id="mobileMenu"
+            class="hidden md:hidden border-t border-slate-200 bg-white shadow-lg transition-all duration-300 origin-top transform">
             <div class="flex flex-col p-4 space-y-2">
-                <a href="/" class="mobile-nav-item">首页</a>
-                <a href="/daily/{{ today or '' }}" class="mobile-nav-item">今日日报</a>
-                <a href="/history" class="mobile-nav-item">历史</a>
-                <a href="/prompts" class="mobile-nav-item">Prompts</a>
-                <a href="/settings" class="mobile-nav-item">设置</a>
+                <a href="/" class="mobile-nav-item flex items-center gap-2">
+                    <span class="text-lg">🏠</span>
+                    <span>首页</span>
+                </a>
+                <a href="/daily/{{ today or '' }}" class="mobile-nav-item flex items-center gap-2">
+                    <span class="text-lg">📰</span>
+                    <span>今日日报</span>
+                </a>
+                <a href="/history" class="mobile-nav-item flex items-center gap-2">
+                    <span class="text-lg">📜</span>
+                    <span>历史</span>
+                </a>
+                <a href="/prompts" class="mobile-nav-item flex items-center gap-2">
+                    <span class="text-lg">🤖</span>
+                    <span>Prompts</span>
+                </a>
+                <a href="/settings" class="mobile-nav-item flex items-center gap-2">
+                    <span class="text-lg">⚙️</span>
+                    <span>设置</span>
+                </a>
                 <div class="border-t border-slate-100 my-2 pt-2">
                     <form action="/api/auth/logout" method="POST">
-                        <button type="submit" class="w-full text-left mobile-nav-item text-red-600">退出登录</button>
+                        <button type="submit"
+                            class="w-full text-left mobile-nav-item text-red-600 flex items-center gap-2">
+                            <span class="text-lg">🚪</span>
+                            <span>退出登录</span>
+                        </button>
                     </form>
                 </div>
             </div>
