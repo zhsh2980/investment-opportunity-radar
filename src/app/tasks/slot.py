@@ -105,12 +105,13 @@ def is_last_slot_of_day(session, current_slot: str) -> bool:
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=60)
-def run_slot(self, slot: str):
+def run_slot(self, slot: str, manual: bool = False):
     """
     执行一个 slot 的完整流程
     
     Args:
         slot: 时段标识，如 "07:00", "12:00", "22:00"
+        manual: 是否为手动触发（True 时无机会也会推送汇总）
     """
     settings = get_settings()
     session = SessionLocal()
@@ -209,7 +210,7 @@ def run_slot(self, slot: str):
                 stats["pushed"] = success
             else:
                 # 其他时间点：有机会才推
-                pushed = False
+                pushed_count = 0
                 for analysis in new_analyses:
                     if should_push_opportunity(session, analysis, str(run_date), slot):
                         pushed = push_opportunity_alert(
@@ -220,8 +221,22 @@ def run_slot(self, slot: str):
                             base_url=base_url,
                         )
                         if pushed:
-                            break  # 只推最高分的一条
-                stats["pushed"] = pushed
+                            pushed_count += 1
+                            # 不再 break，每篇有机会的文章都推送
+                
+                # 手动模式且无机会时，发送汇总通知
+                if manual and pushed_count == 0:
+                    from ..services.analyzer import push_manual_summary
+                    push_manual_summary(
+                        session=session,
+                        analyzed_count=len(new_analyses),
+                        run_date=str(run_date),
+                        slot=slot,
+                    )
+                    pushed_count = 1  # 标记已推送
+                
+                stats["pushed"] = pushed_count > 0
+                stats["pushed_count"] = pushed_count
             
             # 6. 更新 slot_run 状态
             slot_run.status = 1  # 成功

@@ -17,6 +17,7 @@ from ...database import SessionLocal
 from ...domain.models import Settings, PromptVersion
 from ...core.security import verify_session_token
 from ...logging_config import get_logger
+from ...tasks.slot import run_slot
 
 logger = get_logger(__name__)
 
@@ -426,3 +427,21 @@ async def update_analysis_status(
     logger.info(f"用户 {user.username} 更新分析 {analysis_id} 状态为: {status_data.action_status}")
     
     return {"status": "success", "analysis_id": analysis_id, "action_status": status_data.action_status}
+
+
+@router.post("/run-now")
+async def run_analysis_now(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """手动触发立即分析"""
+    user = get_current_user(request, db)
+    
+    # 获取当前时间 HH:MM
+    now_str = datetime.now().strftime("%H:%M")
+    
+    # 异步触发任务
+    logger.info(f"用户 {user.username} 手动触发立即分析: {now_str}")
+    run_slot.delay(slot=now_str, manual=True)
+    
+    return {"status": "success", "message": f"分析任务已启动 ({now_str})"}

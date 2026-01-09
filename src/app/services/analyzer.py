@@ -385,3 +385,63 @@ def push_opportunity_alert(
 def generate_msg_uuid(date: str, slot: str, push_type: str) -> str:
     """生成推送幂等 key"""
     return hashlib.sha1(f"{date}:{slot}:{push_type}".encode()).hexdigest()
+
+
+def push_manual_summary(
+    session: Session,
+    analyzed_count: int,
+    run_date: str,
+    slot: str,
+) -> bool:
+    """
+    手动分析完成后发送汇总通知（当无机会时调用）
+    
+    Args:
+        session: 数据库会话
+        analyzed_count: 分析文章数量
+        run_date: 运行日期
+        slot: 运行时间段
+    """
+    dingtalk = get_dingtalk_client()
+    
+    # 生成幂等 key
+    msg_uuid = generate_msg_uuid(run_date, slot, "manual_summary")
+    
+    text = f"""### 📊 手动分析完成
+    
+**执行时间**: {run_date} {slot}
+
+**分析统计**: 共分析 {analyzed_count} 篇文章
+
+**分析结果**: 暂未发现投资机会
+"""
+    
+    try:
+        result = dingtalk.send_markdown(
+            title="📊 手动分析完成",
+            text=text,
+            msg_uuid=msg_uuid,
+        )
+        
+        success = result.get("errcode") == 0
+        
+        # 记录推送日志
+        log = NotificationLog(
+            report_date=run_date,
+            slot=slot,
+            push_type="manual_summary",
+            msg_uuid=msg_uuid,
+            target_url="",
+            title="手动分析汇总",
+            payload={"analyzed_count": analyzed_count},
+            response=result,
+            status=1 if success else 2,
+            error=result.get("errmsg") if not success else None,
+        )
+        session.add(log)
+        session.commit()
+        
+        return success
+    except Exception as e:
+        logger.error(f"推送手动汇总失败: {e}")
+        return False
