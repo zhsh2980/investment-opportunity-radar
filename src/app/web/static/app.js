@@ -89,7 +89,36 @@ async function handleLogin(event) {
  */
 window.toggleMobileMenu = function () {
     const menu = document.getElementById('mobileMenu');
+    const backdrop = document.getElementById('mobileBackdrop');
+    const menuIcon = document.getElementById('menuIcon');
+    const closeIcon = document.getElementById('closeIcon');
+
+    // 切换菜单显示状态
     if (menu) {
-        menu.classList.toggle('hidden');
+        const isHidden = menu.classList.contains('translate-x-full');
+
+        if (isHidden) {
+            // 打开菜单
+            menu.classList.remove('translate-x-full');
+            menu.classList.add('translate-x-0');
+            if (backdrop) backdrop.classList.remove('hidden');
+            // 禁止页面滚动
+            document.body.style.overflow = 'hidden';
+
+            // 切换图标
+            if (menuIcon) menuIcon.classList.add('hidden');
+            if (closeIcon) closeIcon.classList.remove('hidden');
+        } else {
+            // 关闭菜单
+            menu.classList.remove('translate-x-0');
+            menu.classList.add('translate-x-full');
+            if (backdrop) backdrop.classList.add('hidden');
+            // 恢复页面滚动
+            document.body.style.overflow = '';
+
+            // 恢复图标
+            if (menuIcon) menuIcon.classList.remove('hidden');
+            if (closeIcon) closeIcon.classList.add('hidden');
+        }
     }
 };
