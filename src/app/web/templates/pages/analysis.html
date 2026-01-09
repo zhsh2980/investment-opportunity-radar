@@ -30,6 +30,22 @@
                 </div>
             </div>
 
+            <!-- 执行标记 -->
+            <div class="section-block action-status-block">
+                <h3>🏷️ 执行标记</h3>
+                <div class="status-buttons" id="statusButtons">
+                    <button
+                        class="status-btn {% if analysis.action_status == 'pending' or not analysis.action_status %}active{% endif %}"
+                        onclick="updateStatus('pending')">⏳ 待处理</button>
+                    <button class="status-btn {% if analysis.action_status == 'executed' %}active{% endif %}"
+                        onclick="updateStatus('executed')">✅ 已执行</button>
+                    <button class="status-btn {% if analysis.action_status == 'skipped' %}active{% endif %}"
+                        onclick="updateStatus('skipped')">❌ 不执行</button>
+                    <button class="status-btn {% if analysis.action_status == 'watching' %}active{% endif %}"
+                        onclick="updateStatus('watching')">👀 观望中</button>
+                </div>
+            </div>
+
             <!-- 一句话结论 -->
             <div class="section-block summary-block">
                 <h3>📌 一句话结论</h3>
@@ -178,6 +194,31 @@
         navigator.clipboard.writeText(text).then(() => {
             alert('已复制: ' + text);
         });
+    }
+
+    async function updateStatus(status) {
+        try {
+            const response = await fetch('/api/analyses/{{ analysis.id }}/status', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ action_status: status }),
+            });
+
+            if (response.ok) {
+                // 更新按钮状态
+                document.querySelectorAll('.status-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                event.target.classList.add('active');
+            } else {
+                const err = await response.json();
+                alert('更新失败: ' + (err.detail || '未知错误'));
+            }
+        } catch (error) {
+            alert('更新失败: ' + error.message);
+        }
     }
 </script>
 {% endblock %}

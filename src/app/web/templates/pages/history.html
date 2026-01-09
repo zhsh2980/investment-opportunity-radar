@@ -37,7 +37,15 @@
 
     <!-- 结果列表 -->
     <section class="results-section">
-        <p class="results-count">共 {{ analyses|length }} 条结果</p>
+        <div class="results-header">
+            <p class="results-count">共 {{ analyses|length }} 条结果</p>
+            <div class="export-buttons">
+                <a href="/api/export/analyses?format=json&start_date={{ start_date }}&end_date={{ end_date }}&min_score={{ min_score }}"
+                    class="btn-export" target="_blank">📄 导出 JSON</a>
+                <a href="/api/export/analyses?format=csv&start_date={{ start_date }}&end_date={{ end_date }}&min_score={{ min_score }}"
+                    class="btn-export">📊 导出 CSV</a>
+            </div>
+        </div>
 
         {% if analyses %}
         <div class="history-table-wrapper">

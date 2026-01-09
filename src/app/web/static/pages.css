@@ -1382,3 +1382,66 @@
     color: #1f2937;
     font-weight: 500;
 }
+
+/* ===== 执行标记 ===== */
+.action-status-block {
+    background: #f0fdf4;
+    border: 1px solid #86efac;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+.status-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.status-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    background: white;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.status-btn:hover {
+    background: #f3f4f6;
+}
+
+.status-btn.active {
+    background: #2563eb;
+    color: white;
+    border-color: #2563eb;
+}
+
+/* ===== 导出按钮 ===== */
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.export-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-export {
+    padding: 0.5rem 1rem;
+    background: #f3f4f6;
+    color: #374151;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.btn-export:hover {
+    background: #e5e7eb;
+}

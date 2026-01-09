@@ -204,3 +204,188 @@ async def get_prompt(
         "is_active": prompt.is_active,
         "created_at": prompt.created_at.isoformat(),
     }
+
+
+# ===== 导出 API =====
+import csv
+import io
+from fastapi.responses import StreamingResponse
+from datetime import date, timedelta
+from sqlalchemy import desc
+
+from ...domain.models import AnalysisResult, ContentItem
+
+
+@router.get("/export/analyses")
+async def export_analyses(
+    request: Request,
+    db: Session = Depends(get_db),
+    format: str = "json",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    min_score: int = 0,
+):
+    """导出分析结果（JSON 或 CSV）"""
+    user = get_current_user(request, db)
+    
+    # 解析日期
+    if end_date:
+        end_date_parsed = datetime.strptime(end_date, "%Y-%m-%d").date()
+    else:
+        end_date_parsed = date.today()
+    
+    if start_date:
+        start_date_parsed = datetime.strptime(start_date, "%Y-%m-%d").date()
+    else:
+        start_date_parsed = end_date_parsed - timedelta(days=7)
+    
+    # 查询数据
+    analyses = db.query(AnalysisResult).join(ContentItem).filter(
+        AnalysisResult.score >= min_score,
+        ContentItem.published_at >= datetime.combine(start_date_parsed, datetime.min.time()),
+        ContentItem.published_at < datetime.combine(end_date_parsed + timedelta(days=1), datetime.min.time()),
+    ).order_by(desc(AnalysisResult.score)).all()
+    
+    # 构建导出数据
+    export_data = []
+    for a in analyses:
+        export_data.append({
+            "id": a.id,
+            "score": a.score,
+            "has_opportunity": a.has_opportunity,
+            "summary": a.summary_md,
+            "title": a.content_item.title if a.content_item else "",
+            "mp_name": a.content_item.mp_name if a.content_item else "",
+            "published_at": a.content_item.published_at.isoformat() if a.content_item else "",
+            "url": a.content_item.url if a.content_item else "",
+            "action_status": a.action_status or "pending",
+            "created_at": a.created_at.isoformat() if a.created_at else "",
+        })
+    
+    if format == "csv":
+        # CSV 导出
+        output = io.StringIO()
+        if export_data:
+            writer = csv.DictWriter(output, fieldnames=export_data[0].keys())
+            writer.writeheader()
+            writer.writerows(export_data)
+        
+        output.seek(0)
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=analyses_{start_date_parsed}_{end_date_parsed}.csv"}
+        )
+    else:
+        # JSON 导出
+        return {
+            "start_date": start_date_parsed.isoformat(),
+            "end_date": end_date_parsed.isoformat(),
+            "count": len(export_data),
+            "analyses": export_data,
+        }
+
+
+# ===== JSON API（分析列表）=====
+@router.get("/analyses")
+async def list_analyses(
+    request: Request,
+    db: Session = Depends(get_db),
+    page: int = 1,
+    per_page: int = 20,
+    min_score: int = 0,
+    only_opportunities: bool = False,
+):
+    """获取分析列表 (JSON API)"""
+    user = get_current_user(request, db)
+    
+    query = db.query(AnalysisResult).join(ContentItem).filter(
+        AnalysisResult.score >= min_score
+    )
+    
+    if only_opportunities:
+        query = query.filter(AnalysisResult.has_opportunity == True)
+    
+    total = query.count()
+    analyses = query.order_by(desc(AnalysisResult.created_at)).offset((page - 1) * per_page).limit(per_page).all()
+    
+    return {
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "analyses": [
+            {
+                "id": a.id,
+                "score": a.score,
+                "has_opportunity": a.has_opportunity,
+                "summary": a.summary_md,
+                "title": a.content_item.title if a.content_item else "",
+                "mp_name": a.content_item.mp_name if a.content_item else "",
+                "published_at": a.content_item.published_at.isoformat() if a.content_item else "",
+                "action_status": a.action_status or "pending",
+            }
+            for a in analyses
+        ],
+    }
+
+
+@router.get("/analyses/{analysis_id}")
+async def get_analysis(
+    analysis_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """获取单个分析详情 (JSON API)"""
+    user = get_current_user(request, db)
+    
+    analysis = db.query(AnalysisResult).filter(AnalysisResult.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="分析结果不存在")
+    
+    return {
+        "id": analysis.id,
+        "score": analysis.score,
+        "has_opportunity": analysis.has_opportunity,
+        "summary": analysis.summary_md,
+        "result_json": analysis.result_json,
+        "action_status": analysis.action_status or "pending",
+        "content_item": {
+            "id": analysis.content_item.id,
+            "title": analysis.content_item.title,
+            "mp_name": analysis.content_item.mp_name,
+            "url": analysis.content_item.url,
+            "published_at": analysis.content_item.published_at.isoformat(),
+        } if analysis.content_item else None,
+        "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
+    }
+
+
+# ===== 执行标记 API =====
+class ActionStatusUpdate(BaseModel):
+    action_status: str  # pending, executed, skipped, watching
+
+
+@router.put("/analyses/{analysis_id}/status")
+async def update_analysis_status(
+    analysis_id: int,
+    status_data: ActionStatusUpdate,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """更新分析的执行状态"""
+    user = get_current_user(request, db)
+    
+    valid_statuses = ["pending", "executed", "skipped", "watching"]
+    if status_data.action_status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"无效状态，可选: {valid_statuses}")
+    
+    analysis = db.query(AnalysisResult).filter(AnalysisResult.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="分析结果不存在")
+    
+    analysis.action_status = status_data.action_status
+    db.commit()
+    
+    logger.info(f"用户 {user.username} 更新分析 {analysis_id} 状态为: {status_data.action_status}")
+    
+    return {"status": "success", "analysis_id": analysis_id, "action_status": status_data.action_status}
