@@ -106,8 +106,49 @@ def init_settings():
 
 
 @cli.command()
+def init_prompts():
+    """初始化默认 Prompt 模板"""
+    from src.app.core.prompts import OPPORTUNITY_ANALYZER_SYSTEM_PROMPT, DAILY_DIGEST_SYSTEM_PROMPT
+    
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    
+    prompts = [
+        ("opportunity_analyzer", OPPORTUNITY_ANALYZER_SYSTEM_PROMPT, 60),
+        ("daily_digest", DAILY_DIGEST_SYSTEM_PROMPT, None),
+    ]
+    
+    try:
+        for name, prompt_text, threshold in prompts:
+            existing = session.query(PromptVersion).filter(
+                PromptVersion.name == name,
+                PromptVersion.is_active == True,
+            ).first()
+            
+            if not existing:
+                prompt = PromptVersion(
+                    name=name,
+                    version=1,
+                    is_active=True,
+                    threshold=threshold,
+                    prompt_text=prompt_text,
+                )
+                session.add(prompt)
+                click.echo(f"  + {name} v1 已创建并激活")
+            else:
+                click.echo(f"  - {name} 已有活跃版本 v{existing.version}，跳过")
+        
+        session.commit()
+        click.echo("✅ Prompt 模板初始化完成")
+    finally:
+        session.close()
+
+
+@cli.command()
 def init_all():
-    """一键初始化：数据库 + 管理员 + 默认配置"""
+    """一键初始化：数据库 + 管理员 + 默认配置 + Prompt"""
     from click.testing import CliRunner
     runner = CliRunner()
     
@@ -127,7 +168,22 @@ def init_all():
     click.echo(result.output)
     
     click.echo("=" * 50)
+    click.echo("初始化 Prompt 模板...")
+    result = runner.invoke(init_prompts)
+    click.echo(result.output)
+    
+    click.echo("=" * 50)
     click.echo("🎉 初始化完成！")
+
+
+@cli.command()
+@click.argument("slot")
+def run_slot_manual(slot: str):
+    """手动触发一个 slot 任务（用于测试）"""
+    from src.app.tasks.slot import run_slot
+    click.echo(f"手动触发 slot: {slot}")
+    result = run_slot(slot)
+    click.echo(f"结果: {result}")
 
 
 if __name__ == "__main__":
