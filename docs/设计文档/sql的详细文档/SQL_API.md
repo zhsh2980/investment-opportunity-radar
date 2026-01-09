@@ -53,7 +53,7 @@
 #### 登录接口
 
 ```http
-POST /api/auth/token
+POST /api/v1/wx/auth/token
 Content-Type: application/x-www-form-urlencoded
 
 username=admin&password=admin@123
@@ -84,7 +84,7 @@ username=admin&password=admin@123
 在请求头中添加 Authorization：
 
 ```http
-GET /api/mps
+GET /api/v1/wx/mps
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
@@ -221,7 +221,7 @@ feeds (通过 mps_id 关联)
 #### 1.1 登录获取 Token
 
 ```http
-POST /api/auth/token
+POST /api/v1/wx/auth/token
 Content-Type: application/x-www-form-urlencoded
 ```
 
@@ -247,7 +247,7 @@ Content-Type: application/x-www-form-urlencoded
 #### 1.2 验证 Token 有效性
 
 ```http
-GET /api/auth/verify
+GET /api/v1/wx/auth/verify
 Authorization: Bearer {token}
 ```
 
@@ -272,7 +272,7 @@ Authorization: Bearer {token}
 #### 2.1 获取公众号列表
 
 ```http
-GET /api/mps?limit=10&offset=0&kw=Python
+GET /api/v1/wx/mps?limit=10&offset=0&kw=Python
 Authorization: Bearer {token}
 ```
 
@@ -316,7 +316,7 @@ Authorization: Bearer {token}
 #### 2.2 获取公众号详情
 
 ```http
-GET /api/mps/{mp_id}
+GET /api/v1/wx/mps/{mp_id}
 Authorization: Bearer {token}
 ```
 
@@ -351,7 +351,7 @@ Authorization: Bearer {token}
 #### 3.1 获取文章列表（支持按日期筛选）
 
 ```http
-GET /api/articles?mp_id={mp_id}&limit=10&offset=0&has_content=true
+GET /api/v1/wx/articles?mp_id={mp_id}&limit=10&offset=0&has_content=true
 Authorization: Bearer {token}
 ```
 
@@ -404,7 +404,7 @@ Authorization: Bearer {token}
 #### 3.2 获取文章详情
 
 ```http
-GET /api/articles/{article_id}
+GET /api/v1/wx/articles/{article_id}
 Authorization: Bearer {token}
 ```
 
@@ -472,7 +472,7 @@ curl http://154.8.205.159:8001/rss/
 
 ```bash
 # 登录
-TOKEN=$(curl -X POST "http://154.8.205.159:8001/api/auth/token" \
+TOKEN=$(curl -X POST "http://154.8.205.159:8001/api/v1/wx/auth/token" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=admin&password=admin@123" | jq -r '.access_token')
 
@@ -483,7 +483,7 @@ echo "Token: $TOKEN"
 
 ```bash
 # 获取公众号列表
-curl -X GET "http://154.8.205.159:8001/api/mps?limit=10" \
+curl -X GET "http://154.8.205.159:8001/api/v1/wx/mps?limit=10" \
   -H "Authorization: Bearer $TOKEN" | jq
 ```
 
@@ -494,7 +494,7 @@ curl -X GET "http://154.8.205.159:8001/api/mps?limit=10" \
 MP_ID="MP_WXS_MzI1MDY3MTkyMw=="
 
 # 获取该公众号的文章（按日期降序）
-curl -X GET "http://154.8.205.159:8001/api/articles?mp_id=$MP_ID&limit=20&has_content=true" \
+curl -X GET "http://154.8.205.159:8001/api/v1/wx/articles?mp_id=$MP_ID&limit=20&has_content=true" \
   -H "Authorization: Bearer $TOKEN" | jq
 ```
 
@@ -504,7 +504,7 @@ curl -X GET "http://154.8.205.159:8001/api/articles?mp_id=$MP_ID&limit=20&has_co
 # 在应用层筛选最近 7 天的文章
 SEVEN_DAYS_AGO=$(date -d '7 days ago' +%s)
 
-curl -X GET "http://154.8.205.159:8001/api/articles?mp_id=$MP_ID&limit=100&has_content=false" \
+curl -X GET "http://154.8.205.159:8001/api/v1/wx/articles?mp_id=$MP_ID&limit=100&has_content=false" \
   -H "Authorization: Bearer $TOKEN" | \
   jq --argjson since "$SEVEN_DAYS_AGO" '.data.list[] | select(.publish_time >= $since)'
 ```
@@ -531,7 +531,7 @@ class WeRSSClient:
 
     def login(self):
         """登录获取 Token"""
-        url = f"{self.base_url}/api/auth/token"
+        url = f"{self.base_url}/api/v1/wx/auth/token"
         data = {
             "username": self.username,
             "password": self.password
@@ -549,7 +549,7 @@ class WeRSSClient:
 
     def get_feeds(self, limit=10, offset=0, keyword=""):
         """获取公众号列表"""
-        url = f"{self.base_url}/api/mps"
+        url = f"{self.base_url}/api/v1/wx/mps"
         params = {"limit": limit, "offset": offset, "kw": keyword}
         response = requests.get(url, headers=self._headers(), params=params)
         response.raise_for_status()
@@ -557,7 +557,7 @@ class WeRSSClient:
 
     def get_articles(self, mp_id=None, limit=10, offset=0, has_content=False):
         """获取文章列表"""
-        url = f"{self.base_url}/api/articles"
+        url = f"{self.base_url}/api/v1/wx/articles"
         params = {
             "limit": limit,
             "offset": offset,
@@ -572,7 +572,7 @@ class WeRSSClient:
 
     def get_article_detail(self, article_id):
         """获取文章详情"""
-        url = f"{self.base_url}/api/articles/{article_id}"
+        url = f"{self.base_url}/api/v1/wx/articles/{article_id}"
         response = requests.get(url, headers=self._headers())
         response.raise_for_status()
         return response.json()["data"]
@@ -679,7 +679,7 @@ class WeRSSClient {
   }
 
   async login() {
-    const url = `${this.baseURL}/api/auth/token`;
+    const url = `${this.baseURL}/api/v1/wx/auth/token`;
     const params = new URLSearchParams();
     params.append('username', this.username);
     params.append('password', this.password);
@@ -697,7 +697,7 @@ class WeRSSClient {
   }
 
   async getFeeds(limit = 10, offset = 0, keyword = '') {
-    const url = `${this.baseURL}/api/mps`;
+    const url = `${this.baseURL}/api/v1/wx/mps`;
     const response = await axios.get(url, {
       headers: this._headers(),
       params: { limit, offset, kw: keyword }
@@ -706,7 +706,7 @@ class WeRSSClient {
   }
 
   async getArticles(mpId = null, limit = 10, offset = 0, hasContent = false) {
-    const url = `${this.baseURL}/api/articles`;
+    const url = `${this.baseURL}/api/v1/wx/articles`;
     const params = { limit, offset, has_content: hasContent };
     if (mpId) params.mp_id = mpId;
 
@@ -922,12 +922,12 @@ conn.close()
 
 ### Q1: Token 过期了怎么办？
 
-Token 默认有效期为 3 天（259200 秒）。过期后需要重新调用 `/api/auth/token` 获取新 Token。
+Token 默认有效期为 3 天（259200 秒）。过期后需要重新调用 `/api/v1/wx/auth/token` 获取新 Token。
 
-你也可以调用 `/api/auth/refresh` 刷新 Token：
+你也可以调用 `/api/v1/wx/auth/refresh` 刷新 Token：
 
 ```bash
-curl -X POST "http://154.8.205.159:8001/api/auth/refresh" \
+curl -X POST "http://154.8.205.159:8001/api/v1/wx/auth/refresh" \
   -H "Authorization: Bearer $OLD_TOKEN"
 ```
 
@@ -952,11 +952,11 @@ curl -X POST "http://154.8.205.159:8001/api/auth/refresh" \
 在调用文章列表 API 时，添加 `has_content=true` 参数：
 
 ```bash
-curl -X GET "http://154.8.205.159:8001/api/articles?mp_id=xxx&has_content=true" \
+curl -X GET "http://154.8.205.159:8001/api/v1/wx/articles?mp_id=xxx&has_content=true" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-或者使用 `/api/articles/{article_id}` 获取单篇文章详情。
+或者使用 `/api/v1/wx/articles/{article_id}` 获取单篇文章详情。
 
 ---
 

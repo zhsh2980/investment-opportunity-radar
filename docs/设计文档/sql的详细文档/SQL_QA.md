@@ -280,7 +280,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{API_BASE}/auth/token")
 
 ```bash
 # 在云服务器上运行（本地访问）
-curl -X GET "http://localhost:8001/api/mps?limit=5" \
+curl -X GET "http://localhost:8001/api/v1/wx/mps?limit=5" \
   -H "Authorization: Bearer {TOKEN}"
 ```
 
@@ -343,7 +343,7 @@ HTTP 状态码：`401 Unauthorized`
 
 ```bash
 # 重新登录
-curl -X POST "http://localhost:8001/api/auth/token" \
+curl -X POST "http://localhost:8001/api/v1/wx/auth/token" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=admin&password=admin@123"
 
@@ -361,7 +361,7 @@ curl -X POST "http://localhost:8001/api/auth/token" \
 
 ```bash
 # 使用旧 TOKEN 刷新获取新 TOKEN
-curl -X POST "http://localhost:8001/api/auth/refresh" \
+curl -X POST "http://localhost:8001/api/v1/wx/auth/refresh" \
   -H "Authorization: Bearer {旧TOKEN}"
 
 # 响应（新的 TOKEN）
@@ -401,7 +401,7 @@ class WeRSSClient:
 
     def login(self):
         """登录获取 TOKEN"""
-        url = f"{self.base_url}/api/auth/token"
+        url = f"{self.base_url}/api/v1/wx/auth/token"
         data = {"username": self.username, "password": self.password}
         response = requests.post(url, data=data)
         response.raise_for_status()
@@ -420,7 +420,7 @@ class WeRSSClient:
         if not self.token:
             return self.login()
 
-        url = f"{self.base_url}/api/auth/refresh"
+        url = f"{self.base_url}/api/v1/wx/auth/refresh"
         headers = {"Authorization": f"Bearer {self.token}"}
 
         try:
@@ -453,7 +453,7 @@ class WeRSSClient:
 
     def get_articles(self, mp_id=None, limit=10):
         """获取文章列表（自动处理 TOKEN）"""
-        url = f"{self.base_url}/api/articles"
+        url = f"{self.base_url}/api/v1/wx/articles"
         params = {"limit": limit}
         if mp_id:
             params["mp_id"] = mp_id
@@ -464,7 +464,7 @@ class WeRSSClient:
 
     def get_feeds(self, limit=10):
         """获取公众号列表"""
-        url = f"{self.base_url}/api/mps"
+        url = f"{self.base_url}/api/v1/wx/mps"
         params = {"limit": limit}
         response = requests.get(url, headers=self._headers(), params=params)
         response.raise_for_status()
@@ -506,7 +506,7 @@ TOKEN_EXPIRE_FILE="/tmp/werss_token_expire.txt"
 # 获取新 TOKEN
 get_token() {
     echo "正在登录获取 TOKEN..."
-    RESPONSE=$(curl -s -X POST "$BASE_URL/api/auth/token" \
+    RESPONSE=$(curl -s -X POST "$BASE_URL/api/v1/wx/auth/token" \
         -H "Content-Type: application/x-www-form-urlencoded" \
         -d "username=$USERNAME&password=$PASSWORD")
 
@@ -562,10 +562,10 @@ call_api() {
 # 使用示例
 case "$1" in
     feeds)
-        call_api "/api/mps" "limit=10"
+        call_api "/api/v1/wx/mps" "limit=10"
         ;;
     articles)
-        call_api "/api/articles" "limit=20&has_content=false"
+        call_api "/api/v1/wx/articles" "limit=20&has_content=false"
         ;;
     *)
         echo "Usage: $0 {feeds|articles}"
@@ -594,7 +594,7 @@ chmod +x werss_api.sh
 # 验证 TOKEN
 TOKEN="your_token_here"
 
-curl -X GET "http://localhost:8001/api/auth/verify" \
+curl -X GET "http://localhost:8001/api/v1/wx/auth/verify" \
   -H "Authorization: Bearer $TOKEN" | jq
 
 # 响应（如果有效）：
@@ -634,7 +634,7 @@ class WeRSSSync:
 
     def login(self):
         """登录获取 TOKEN"""
-        url = f"{self.base_url}/api/auth/token"
+        url = f"{self.base_url}/api/v1/wx/auth/token"
         data = {"username": self.username, "password": self.password}
         response = requests.post(url, data=data)
         response.raise_for_status()
@@ -668,7 +668,7 @@ class WeRSSSync:
 
         try:
             # 获取所有公众号
-            feeds_url = f"{self.base_url}/api/mps"
+            feeds_url = f"{self.base_url}/api/v1/wx/mps"
             feeds_response = requests.get(feeds_url, headers=self._headers(), params={"limit": 100})
             feeds_response.raise_for_status()
             feeds = feeds_response.json()["data"]["list"]
@@ -678,7 +678,7 @@ class WeRSSSync:
             total_articles = 0
             for feed in feeds:
                 # 获取每个公众号的文章
-                articles_url = f"{self.base_url}/api/articles"
+                articles_url = f"{self.base_url}/api/v1/wx/articles"
                 params = {"mp_id": feed["id"], "limit": 50, "has_content": False}
                 articles_response = requests.get(articles_url, headers=self._headers(), params=params)
                 articles_response.raise_for_status()
