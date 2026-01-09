@@ -108,7 +108,12 @@ def init_settings():
 @cli.command()
 def init_prompts():
     """初始化默认 Prompt 模板"""
-    from src.app.core.prompts import OPPORTUNITY_ANALYZER_SYSTEM_PROMPT, DAILY_DIGEST_SYSTEM_PROMPT
+    from src.app.core.prompts import (
+        OPPORTUNITY_ANALYZER_SYSTEM_PROMPT, 
+        OPPORTUNITY_ANALYZER_USER_TEMPLATE,
+        DAILY_DIGEST_SYSTEM_PROMPT,
+        DAILY_DIGEST_USER_TEMPLATE
+    )
     
     settings = get_settings()
     engine = create_engine(settings.database_url)
@@ -116,12 +121,22 @@ def init_prompts():
     session = Session()
     
     prompts = [
-        ("opportunity_analyzer", OPPORTUNITY_ANALYZER_SYSTEM_PROMPT, 60),
-        ("daily_digest", DAILY_DIGEST_SYSTEM_PROMPT, None),
+        (
+            "opportunity_analyzer", 
+            OPPORTUNITY_ANALYZER_SYSTEM_PROMPT, 
+            OPPORTUNITY_ANALYZER_USER_TEMPLATE, 
+            60
+        ),
+        (
+            "daily_digest", 
+            DAILY_DIGEST_SYSTEM_PROMPT, 
+            DAILY_DIGEST_USER_TEMPLATE, 
+            None
+        ),
     ]
     
     try:
-        for name, prompt_text, threshold in prompts:
+        for name, system_prompt, user_template, threshold in prompts:
             existing = session.query(PromptVersion).filter(
                 PromptVersion.name == name,
                 PromptVersion.is_active == True,
@@ -133,7 +148,8 @@ def init_prompts():
                     version=1,
                     is_active=True,
                     threshold=threshold,
-                    prompt_text=prompt_text,
+                    system_prompt=system_prompt,
+                    user_template=user_template,
                 )
                 session.add(prompt)
                 click.echo(f"  + {name} v1 已创建并激活")
@@ -144,6 +160,39 @@ def init_prompts():
         click.echo("✅ Prompt 模板初始化完成")
     finally:
         session.close()
+
+
+@cli.command()
+def fix_prompts_schema():
+    """修复 PromptVersion 表结构（增加 system_prompt/user_template）"""
+    from sqlalchemy import text
+    
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    
+    click.echo("正在修复 PromptVersion 表结构...")
+    
+    with engine.connect() as conn:
+        try:
+            # 1. 添加新列
+            click.echo("Adding columns system_prompt and user_template...")
+            conn.execute(text("ALTER TABLE prompt_version ADD COLUMN IF NOT EXISTS system_prompt TEXT DEFAULT ''"))
+            conn.execute(text("ALTER TABLE prompt_version ADD COLUMN IF NOT EXISTS user_template TEXT DEFAULT ''"))
+            conn.commit()
+            click.echo("✅ Columns added.")
+        except Exception as e:
+            click.echo(f"⚠️ Column add warning: {e}")
+
+        try:
+            # 2. 删除旧列 (SQLite 可能不支持 DROP COLUMN)
+            click.echo("Dropping column prompt_text...")
+            conn.execute(text("ALTER TABLE prompt_version DROP COLUMN IF EXISTS prompt_text"))
+            conn.commit()
+            click.echo("✅ Column dropped.")
+        except Exception as e:
+            click.echo(f"⚠️ Drop column warning: {e}")
+            
+    click.echo("🎉 结构修复完成")
 
 
 @cli.command()
