@@ -104,73 +104,78 @@
                 </button>
             </div>
         </div>
+    </nav>
 
-        <!-- Mobile Menu Backdrop -->
-        <div id="mobileBackdrop"
-            class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[60] hidden transition-opacity duration-300"
-            onclick="toggleMobileMenu()"></div>
+    <!-- Mobile Menu Backdrop (OUTSIDE nav to avoid stacking context issues) -->
+    <div id="mobileBackdrop"
+        class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] hidden transition-opacity duration-300 md:hidden"
+        onclick="toggleMobileMenu()"></div>
 
-        <!-- Mobile Menu (Side Drawer) -->
-        <div id="mobileMenu"
-            class="fixed inset-y-0 right-0 w-[75%] max-w-[300px] bg-white shadow-2xl z-[70] transform translate-x-full transition-transform duration-300 ease-in-out md:hidden border-l border-slate-100">
-            <div class="flex flex-col h-full">
-                <!-- Drawer Header -->
-                <div class="h-16 flex items-center justify-between px-6 border-b border-slate-100 bg-slate-50/50">
-                    <span class="font-bold text-lg text-slate-800 tracking-tight">菜单</span>
-                    <!-- Close button is handled by the main toggle button which stays visible -->
-                </div>
+    <!-- Mobile Menu (Side Drawer - OUTSIDE nav) -->
+    <div id="mobileMenu"
+        class="fixed inset-y-0 right-0 w-[75%] max-w-[300px] bg-white shadow-2xl z-[70] transform translate-x-full transition-transform duration-300 ease-in-out md:hidden border-l border-slate-100">
+        <div class="flex flex-col h-full">
+            <!-- Drawer Header -->
+            <div class="h-16 flex items-center justify-between px-6 border-b border-slate-100 bg-slate-50/50">
+                <span class="font-bold text-lg text-slate-800 tracking-tight">菜单</span>
+                <button onclick="toggleMobileMenu()" class="p-1 rounded-lg hover:bg-slate-100 transition-colors">
+                    <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
 
-                <!-- Menu Items -->
-                <div class="flex flex-col p-6 space-y-4 overflow-y-auto flex-1">
-                    <a href="/"
-                        class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
-                        <span class="text-xl">🏠</span>
-                        <span class="font-medium text-slate-700">首页</span>
-                    </a>
-                    <a href="/daily/{{ today or '' }}"
-                        class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
-                        <span class="text-xl">📰</span>
-                        <span class="font-medium text-slate-700">今日日报</span>
-                    </a>
-                    <a href="/history"
-                        class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
-                        <span class="text-xl">📜</span>
-                        <span class="font-medium text-slate-700">历史</span>
-                    </a>
-                    <a href="/prompts"
-                        class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
-                        <span class="text-xl">🤖</span>
-                        <span class="font-medium text-slate-700">Prompts</span>
-                    </a>
-                    <a href="/settings"
-                        class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
-                        <span class="text-xl">⚙️</span>
-                        <span class="font-medium text-slate-700">设置</span>
-                    </a>
-                </div>
+            <!-- Menu Items -->
+            <div class="flex flex-col p-6 space-y-4 overflow-y-auto flex-1">
+                <a href="/"
+                    class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <span class="text-xl">🏠</span>
+                    <span class="font-medium text-slate-700">首页</span>
+                </a>
+                <a href="/daily/{{ today or '' }}"
+                    class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <span class="text-xl">📰</span>
+                    <span class="font-medium text-slate-700">今日日报</span>
+                </a>
+                <a href="/history"
+                    class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <span class="text-xl">📜</span>
+                    <span class="font-medium text-slate-700">历史</span>
+                </a>
+                <a href="/prompts"
+                    class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <span class="text-xl">🤖</span>
+                    <span class="font-medium text-slate-700">Prompts</span>
+                </a>
+                <a href="/settings"
+                    class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <span class="text-xl">⚙️</span>
+                    <span class="font-medium text-slate-700">设置</span>
+                </a>
+            </div>
 
-                <!-- Drawer Footer -->
-                <div class="p-6 border-t border-slate-100 bg-slate-50/30">
-                    <div class="mb-4 flex items-center gap-3 px-2">
-                        <div
-                            class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-                            {{ user.username[0] | upper }}
-                        </div>
-                        <div class="flex flex-col">
-                            <span class="text-sm font-medium text-slate-900">{{ user.username }}</span>
-                            <span class="text-xs text-slate-500">已登录</span>
-                        </div>
+            <!-- Drawer Footer -->
+            <div class="p-6 border-t border-slate-100 bg-slate-50/30">
+                <div class="mb-4 flex items-center gap-3 px-2">
+                    <div
+                        class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                        {{ user.username[0] | upper }}
                     </div>
-                    <form action="/api/auth/logout" method="POST">
-                        <button type="submit"
-                            class="w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-red-600 hover:bg-red-50 transition-colors font-medium text-sm shadow-sm">
-                            <span>退出登录</span>
-                        </button>
-                    </form>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium text-slate-900">{{ user.username }}</span>
+                        <span class="text-xs text-slate-500">已登录</span>
+                    </div>
                 </div>
+                <form action="/api/auth/logout" method="POST">
+                    <button type="submit"
+                        class="w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-red-600 hover:bg-red-50 transition-colors font-medium text-sm shadow-sm">
+                        <span>退出登录</span>
+                    </button>
+                </form>
             </div>
         </div>
-    </nav>
+    </div>
     {% endif %}
 
     <!-- Main Content -->
@@ -187,7 +192,7 @@
         </div>
     </footer>
 
-    <script src="/static/app.js?v=4"></script>
+    <script src="/static/app.js?v=5"></script>
     {% block extra_scripts %}{% endblock %}
 </body>
 
