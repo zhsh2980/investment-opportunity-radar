@@ -99,8 +99,7 @@
                 <div
                     class="slot-item inline-flex items-center gap-1 bg-slate-50 rounded-lg px-2 py-1 border border-slate-200">
                     <input type="time" value="{{ slot }}"
-                        class="slot-input bg-transparent border-0 text-sm font-medium text-slate-700 w-20 focus:ring-0 focus:outline-none"
-                        onchange="sortSlots()">
+                        class="slot-input bg-transparent border-0 text-sm font-medium text-slate-700 w-20 focus:ring-0 focus:outline-none">
                     <button type="button" onclick="removeSlot(this)"
                         class="text-slate-400 hover:text-red-500 transition-colors p-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -175,7 +174,8 @@
                 slots.push(val);
             }
         });
-        return slots;
+        // 返回前按时间排序
+        return slots.sort();
     }
 
     function sortSlots() {
@@ -191,12 +191,22 @@
 
     function addSlot() {
         const container = document.getElementById('scheduleSlotsContainer');
+
+        // 获取当前最后一个时间点，新增的在其后一小时
+        const inputs = container.querySelectorAll('.slot-input');
+        let newTime = '12:00';
+        if (inputs.length > 0) {
+            const lastTime = inputs[inputs.length - 1].value || '12:00';
+            const [h, m] = lastTime.split(':').map(Number);
+            const newHour = Math.min(h + 1, 23);
+            newTime = String(newHour).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+        }
+
         const div = document.createElement('div');
         div.className = 'slot-item inline-flex items-center gap-1 bg-slate-50 rounded-lg px-2 py-1 border border-slate-200';
         div.innerHTML = `
-            <input type="time" value="12:00" 
-                   class="slot-input bg-transparent border-0 text-sm font-medium text-slate-700 w-20 focus:ring-0 focus:outline-none"
-                   onchange="sortSlots()">
+            <input type="time" value="${newTime}" 
+                   class="slot-input bg-transparent border-0 text-sm font-medium text-slate-700 w-20 focus:ring-0 focus:outline-none">
             <button type="button" onclick="removeSlot(this)" 
                     class="text-slate-400 hover:text-red-500 transition-colors p-1">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,7 +215,7 @@
             </button>
         `;
         container.appendChild(div);
-        sortSlots();
+        // 不立即排序，等保存时再排序
     }
 
     function removeSlot(btn) {
