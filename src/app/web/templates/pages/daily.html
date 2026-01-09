@@ -1,120 +1,137 @@
 {% extends "base.html" %}
 
-{% block title %}{{ report_date }} 日报 - 投资机会雷达{% endblock %}
+{% block title %}{{ report_date.strftime('%Y-%m-%d') }} 日报 - 投资机会雷达{% endblock %}
 
 {% block content %}
-<div class="daily-page">
-    <!-- 日报头部 -->
-    <header class="daily-header">
-        <div class="date-nav">
-            <a href="/daily/{{ prev_date }}" class="nav-arrow">← 前一天</a>
-            <h1>📊 {{ report_date.strftime('%Y年%m月%d日') }} 日报</h1>
-            <a href="/daily/{{ next_date }}" class="nav-arrow">后一天 →</a>
-        </div>
+<div class="max-w-4xl mx-auto space-y-8">
 
-        <!-- 今日结论 -->
-        <div class="daily-conclusion {% if opportunities %}has-opp{% else %}no-opp{% endif %}">
+    <!-- Newsletter Header -->
+    <div class="text-center space-y-4 py-8 border-b border-slate-200">
+        <div class="flex items-center justify-center gap-4 text-slate-400 mb-4">
+            <a href="/daily/{{ prev_date }}" class="hover:text-primary-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <span class="text-sm font-medium tracking-wide uppercase text-slate-500">{{
+                report_date.strftime('%Y年%m月%d日') }} · 星期{{ ['一','二','三','四','五','六','日'][report_date.weekday()]
+                }}</span>
+            <a href="/daily/{{ next_date }}" class="hover:text-primary-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+        <h1 class="text-4xl font-bold text-slate-900 tracking-tight">投资机会分析日报</h1>
+
+        <div class="flex justify-center mt-6">
             {% if opportunities %}
-            <div class="conclusion-icon">🎯</div>
-            <div class="conclusion-text">
-                <h2>发现 {{ opportunities|length }} 个投资机会</h2>
-                <p>最高评分: {{ opportunities[0].score if opportunities else 0 }} 分</p>
+            <div
+                class="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm font-medium ring-1 ring-inset ring-green-600/20">
+                <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                发现 {{ opportunities|length }} 个潜在机会
             </div>
             {% else %}
-            <div class="conclusion-icon">📭</div>
-            <div class="conclusion-text">
-                <h2>今日无投资机会</h2>
-                <p>阈值: {{ threshold }} 分</p>
+            <div
+                class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-full text-sm font-medium">
+                <span class="w-2 h-2 bg-slate-400 rounded-full"></span>
+                今日无主要投资机会
             </div>
             {% endif %}
         </div>
+    </div>
 
-        <!-- Slot 进度 -->
-        <div class="slots-progress-bar">
-            {% set slot_labels = {'07:00': 1, '12:00': 2, '14:00': 3, '18:00': 4, '22:00': 5} %}
-            {% for slot_label in ['07:00', '12:00', '14:00', '18:00', '22:00'] %}
-            {% set slot_done = slots | selectattr('slot', 'equalto', slot_label) | selectattr('status', 'equalto', 1) |
-            list %}
-            <div class="slot-progress-item {% if slot_done %}done{% else %}pending{% endif %}">
-                <span class="slot-label">{{ slot_label }}</span>
-                <span class="slot-status">{% if slot_done %}✓{% else %}○{% endif %}</span>
-            </div>
-            {% endfor %}
-        </div>
-    </header>
-
-    <!-- 浓缩资讯 -->
+    <!-- Executive Summary / Digest -->
     {% if report and report.digest_md %}
-    <section class="digest-section">
-        <h2 class="section-title">📋 浓缩资讯</h2>
-        <div class="digest-content markdown-body">
+    <div class="card-premium p-8 bg-white shadow-sm ring-1 ring-slate-900/5">
+        <h2 class="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            今日重点 (Digest)
+        </h2>
+        <div class="digest-container prose prose-slate prose-lg max-w-none text-slate-700">
             {{ report.digest_md | safe }}
         </div>
-    </section>
+    </div>
     {% endif %}
 
-    <!-- 今日机会 Top 3 -->
-    {% if opportunities %}
-    <section class="top-opportunities-section">
-        <h2 class="section-title">🎯 今日机会 Top {{ [opportunities|length, 3]|min }}</h2>
-        <div class="opportunity-cards">
-            {% for analysis in opportunities[:3] %}
-            <a href="/analysis/{{ analysis.id }}" class="opp-card">
-                <div
-                    class="opp-card-score score-{{ 'high' if analysis.score >= 80 else ('medium' if analysis.score >= 60 else 'low') }}">
-                    {{ analysis.score }}
-                </div>
-                <div class="opp-card-body">
-                    <h4>{{ analysis.content_item.title[:50] }}{% if analysis.content_item.title|length > 50 %}...{%
-                        endif %}</h4>
-                    <p class="meta">{{ analysis.content_item.mp_name or '未知' }} · {{
-                        analysis.content_item.published_at.strftime('%H:%M') }}</p>
-                    <p class="summary">{{ analysis.summary_md[:80] }}...</p>
+    <!-- Analysis List (Timeline/Feed Style) -->
+    <div class="space-y-6">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-900">全量分析流</h3>
+            <div class="flex items-center gap-2">
+                <label class="inline-flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
+                    <input type="checkbox" id="onlyOpportunities" onchange="filterAnalyses()"
+                        class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                    仅看机会
+                </label>
+            </div>
+        </div>
+
+        <div id="analysisList" class="space-y-4">
+            {% if analyses %}
+            {% for analysis in analyses %}
+            <a href="/analysis/{{ analysis.id }}"
+                class="analysis-row block bg-white rounded-lg border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all duration-200 p-5 group
+                          {% if analysis.has_opportunity and analysis.score >= threshold %}is-opportunity ring-1 ring-green-500/20 bg-green-50/30{% endif %}"
+                data-score="{{ analysis.score }}"
+                data-opportunity="{{ 'true' if analysis.has_opportunity and analysis.score >= threshold else 'false' }}">
+
+                <div class="flex items-start justify-between gap-4">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-medium text-slate-500">{{ analysis.content_item.mp_name }}</span>
+                            <span class="text-slate-300">•</span>
+                            <span class="text-xs text-slate-400">{{ analysis.content_item.published_at.strftime('%H:%M')
+                                }}</span>
+                            {% if analysis.has_opportunity and analysis.score >= threshold %}
+                            <span
+                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 ml-2">
+                                机会
+                            </span>
+                            {% endif %}
+                        </div>
+                        <h4
+                            class="text-lg font-medium text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">
+                            {{ analysis.content_item.title }}
+                        </h4>
+                        <p class="text-slate-500 text-sm mt-2 line-clamp-2">
+                            {{ analysis.summary_md or '暂无自动摘要...' }}
+                        </p>
+                    </div>
+
+                    <!-- Score Bubble -->
+                    <div class="flex-shrink-0">
+                        {% if analysis.score >= 80 %}
+                        <div
+                            class="w-12 h-12 rounded-lg bg-green-500 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                            {{ analysis.score }}
+                        </div>
+                        {% elif analysis.score >= 60 %}
+                        <div
+                            class="w-12 h-12 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                            {{ analysis.score }}
+                        </div>
+                        {% else %}
+                        <div
+                            class="w-12 h-12 rounded-lg bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-lg">
+                            {{ analysis.score }}
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
             </a>
             {% endfor %}
-        </div>
-    </section>
-    {% endif %}
-
-    <!-- 全量分析列表 -->
-    <section class="all-analyses-section">
-        <h2 class="section-title">📝 全部分析（{{ analyses|length }} 篇）</h2>
-
-        {% if analyses %}
-        <div class="filter-bar">
-            <label>
-                <input type="checkbox" id="onlyOpportunities" onchange="filterAnalyses()">
-                仅看机会
-            </label>
-        </div>
-
-        <div class="analysis-list" id="analysisList">
-            {% for analysis in analyses %}
-            <div class="analysis-row {% if analysis.has_opportunity and analysis.score >= threshold %}is-opportunity{% endif %}"
-                data-score="{{ analysis.score }}"
-                data-opportunity="{{ 'true' if analysis.has_opportunity and analysis.score >= threshold else 'false' }}">
-                <div
-                    class="row-score score-{{ 'high' if analysis.score >= 80 else ('medium' if analysis.score >= 60 else 'low') }}">
-                    {{ analysis.score }}
-                </div>
-                <div class="row-content">
-                    <h4>{{ analysis.content_item.title }}</h4>
-                    <p class="row-meta">
-                        {{ analysis.content_item.mp_name or '未知' }} ·
-                        {{ analysis.content_item.published_at.strftime('%H:%M') }}
-                    </p>
-                </div>
-                <a href="/analysis/{{ analysis.id }}" class="row-link">查看 →</a>
+            {% else %}
+            <div class="text-center py-12 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                <p class="text-slate-500">今日还未进行任何分析</p>
             </div>
-            {% endfor %}
+            {% endif %}
         </div>
-        {% else %}
-        <div class="empty-state">
-            <p>当日暂无分析结果</p>
-        </div>
-        {% endif %}
-    </section>
+    </div>
+
 </div>
 {% endblock %}
 
@@ -123,11 +140,14 @@
     function filterAnalyses() {
         const onlyOpp = document.getElementById('onlyOpportunities').checked;
         const rows = document.querySelectorAll('.analysis-row');
+        let visibleCount = 0;
+
         rows.forEach(row => {
             if (onlyOpp && row.dataset.opportunity !== 'true') {
-                row.style.display = 'none';
+                row.classList.add('hidden');
             } else {
-                row.style.display = 'flex';
+                row.classList.remove('hidden');
+                visibleCount++;
             }
         });
     }

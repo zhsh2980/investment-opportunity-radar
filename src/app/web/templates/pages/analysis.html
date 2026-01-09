@@ -3,188 +3,263 @@
 {% block title %}{{ content_item.title[:30] }} - 分析详情{% endblock %}
 
 {% block content %}
-<div class="analysis-page">
-    <div class="analysis-layout">
-        <!-- 左栏：分析结论 -->
-        <div class="analysis-left">
-            <!-- 顶部信息 -->
-            <div class="analysis-header">
-                <div
-                    class="score-display score-{{ 'high' if analysis.score >= 80 else ('medium' if analysis.score >= 60 else 'low') }}">
-                    <span class="score-number">{{ analysis.score }}</span>
-                    <span class="score-label">分</span>
-                </div>
-                <div class="header-info">
-                    <h1>{{ content_item.title }}</h1>
-                    <div class="meta-info">
-                        <span class="mp-name">📰 {{ content_item.mp_name or '未知公众号' }}</span>
-                        <span class="pub-time">🕐 {{ content_item.published_at.strftime('%Y-%m-%d %H:%M') }}</span>
+<div class="split-layout">
+
+    <!-- Left Column: Intelligence Report -->
+    <div class="report-panel space-y-6 custom-scrollbar-hide">
+
+        <!-- Header Card -->
+        <div class="card-premium p-6">
+            <div class="flex items-start justify-between">
+                <div class="pr-4">
+                    <span
+                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 mb-2">
+                        分析报告 #{{ analysis.id }}
+                    </span>
+                    <h1 class="text-xl font-bold text-slate-900 leading-snug">{{ content_item.title }}</h1>
+                    <div class="flex items-center gap-2 mt-2 text-sm text-slate-500">
+                        <span>{{ content_item.mp_name or '未知来源' }}</span>
+                        <span>•</span>
+                        <span>{{ content_item.published_at.strftime('%Y-%m-%d %H:%M') }}</span>
                     </div>
-                    {% if result.opportunity_types %}
-                    <div class="type-tags">
-                        {% for t in result.opportunity_types %}
-                        <span class="type-tag">{{ t }}</span>
-                        {% endfor %}
+                </div>
+
+                <!-- Score Block -->
+                <div class="flex-shrink-0 text-center">
+                    <div class="w-16 h-16 rounded-xl flex items-center justify-center text-white font-bold text-2xl shadow-sm
+                        {% if analysis.score >= 80 %}bg-green-600
+                        {% elif analysis.score >= 60 %}bg-amber-500
+                        {% else %}bg-slate-400{% endif %}">
+                        {{ analysis.score }}
                     </div>
-                    {% endif %}
+                    <span class="text-xs font-medium text-slate-400 mt-1 block">评分</span>
                 </div>
             </div>
 
-            <!-- 执行标记 -->
-            <div class="section-block action-status-block">
-                <h3>🏷️ 执行标记</h3>
-                <div class="status-buttons" id="statusButtons">
-                    <button
-                        class="status-btn {% if analysis.action_status == 'pending' or not analysis.action_status %}active{% endif %}"
-                        onclick="updateStatus('pending')">⏳ 待处理</button>
-                    <button class="status-btn {% if analysis.action_status == 'executed' %}active{% endif %}"
-                        onclick="updateStatus('executed')">✅ 已执行</button>
-                    <button class="status-btn {% if analysis.action_status == 'skipped' %}active{% endif %}"
-                        onclick="updateStatus('skipped')">❌ 不执行</button>
-                    <button class="status-btn {% if analysis.action_status == 'watching' %}active{% endif %}"
-                        onclick="updateStatus('watching')">👀 观望中</button>
-                </div>
+            <!-- Tags -->
+            {% if result.opportunity_types %}
+            <div class="flex flex-wrap gap-2 mt-4">
+                {% for t in result.opportunity_types %}
+                <span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                    {{ t }}
+                </span>
+                {% endfor %}
             </div>
-
-            <!-- 一句话结论 -->
-            <div class="section-block summary-block">
-                <h3>📌 一句话结论</h3>
-                <p class="summary-text">{{ result.summary or analysis.summary_md }}</p>
-            </div>
-
-            <!-- 行动步骤 -->
-            {% if result.opportunities %}
-            {% for opp in result.opportunities %}
-            <div class="section-block action-block">
-                <h3>🎯 {{ opp.title }}</h3>
-
-                {% if opp.action_steps %}
-                <div class="subsection">
-                    <h4>行动步骤</h4>
-                    <ol class="action-steps">
-                        {% for step in opp.action_steps %}
-                        <li>{{ step }}</li>
-                        {% endfor %}
-                    </ol>
-                </div>
-                {% endif %}
-
-                {% if opp.time_window %}
-                <div class="subsection time-window">
-                    <h4>⏰ 时间窗口</h4>
-                    <p>
-                        {% if opp.time_window.start %}
-                        {{ opp.time_window.start[:16] }} ~ {{ opp.time_window.end[:16] if opp.time_window.end else '待定'
-                        }}
-                        {% else %}
-                        需核验
-                        {% endif %}
-                        <span class="confidence">(置信度: {{ (opp.time_window.confidence * 100)|int if
-                            opp.time_window.confidence else '?' }}%)</span>
-                    </p>
-                </div>
-                {% endif %}
-
-                {% if opp.key_numbers %}
-                <div class="subsection key-numbers">
-                    <h4>🔢 关键参数</h4>
-                    <ul>
-                        {% for key, value in opp.key_numbers.items() %}
-                        <li><strong>{{ key }}:</strong> {{ value }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-
-                {% if opp.constraints %}
-                <div class="subsection constraints">
-                    <h4>⚠️ 约束条件</h4>
-                    <ul>
-                        {% for c in opp.constraints %}
-                        <li>{{ c }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-            </div>
-            {% endfor %}
             {% endif %}
 
-            <!-- 风险提示 -->
-            {% if result.risk_warnings %}
-            <div class="section-block risk-block">
-                <h3>🚨 风险提示</h3>
-                <ul class="risk-list">
-                    {% for risk in result.risk_warnings %}
-                    <li>{{ risk }}</li>
+            <!-- Action Status -->
+            <div class="mt-6 pt-6 border-t border-slate-100">
+                <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">执行状态</label>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-2" id="statusButtons">
+                    <button
+                        class="px-3 py-2 rounded-lg text-sm font-medium border transition-colors
+                        {% if analysis.action_status == 'pending' or not analysis.action_status %}bg-slate-800 text-white border-slate-800 shadow-sm{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}"
+                        onclick="updateStatus('pending', this)">
+                        ⏳ 待处理
+                    </button>
+                    <button
+                        class="px-3 py-2 rounded-lg text-sm font-medium border transition-colors
+                        {% if analysis.action_status == 'executed' %}bg-green-600 text-white border-green-600 shadow-sm{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}"
+                        onclick="updateStatus('executed', this)">
+                        ✅ 已执行
+                    </button>
+                    <button
+                        class="px-3 py-2 rounded-lg text-sm font-medium border transition-colors
+                        {% if analysis.action_status == 'skipped' %}bg-slate-600 text-white border-slate-600 shadow-sm{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}"
+                        onclick="updateStatus('skipped', this)">
+                        ❌ 不执行
+                    </button>
+                    <button
+                        class="px-3 py-2 rounded-lg text-sm font-medium border transition-colors
+                        {% if analysis.action_status == 'watching' %}bg-amber-500 text-white border-amber-500 shadow-sm{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}"
+                        onclick="updateStatus('watching', this)">
+                        👀 观望
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div class="card-premium p-6 border-l-4 border-l-indigo-500">
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                核心结论
+            </h3>
+            <p class="text-slate-700 text-base leading-relaxed font-medium">
+                {{ result.summary or analysis.summary_md }}
+            </p>
+        </div>
+
+        <!-- Action Plan -->
+        {% if result.opportunities %}
+        {% for opp in result.opportunities %}
+        <div class="card-premium p-6">
+            <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                🎯 {{ opp.title }}
+            </h3>
+
+            <!-- Steps -->
+            {% if opp.action_steps %}
+            <div class="mb-6">
+                <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">行动步骤</h4>
+                <ul class="space-y-3">
+                    {% for step in opp.action_steps %}
+                    <li class="flex items-start gap-3">
+                        <span
+                            class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold mt-0.5">{{
+                            loop.index }}</span>
+                        <span class="text-slate-700">{{ step }}</span>
+                    </li>
                     {% endfor %}
                 </ul>
             </div>
             {% endif %}
 
-            <!-- 核验清单 -->
-            {% if result.opportunities and result.opportunities[0].verification_checklist %}
-            <div class="section-block verify-block">
-                <h3>✅ 核验清单</h3>
-                <div class="verify-list">
-                    {% for item in result.opportunities[0].verification_checklist %}
-                    <label class="verify-item">
-                        <input type="checkbox">
-                        <span>{{ item }}</span>
-                    </label>
-                    {% endfor %}
+            <!-- Time Window -->
+            {% if opp.time_window %}
+            <div class="bg-indigo-50/50 rounded-lg p-4 border border-indigo-100 mb-4">
+                <h4 class="text-xs font-semibold text-indigo-800 uppercase tracking-wider mb-1">⏰ 时间窗口</h4>
+                <p class="text-indigo-900 font-medium">
+                    {% if opp.time_window.start %}
+                    {{ opp.time_window.start[:16] }} <span class="text-indigo-400 mx-1">➜</span> {{
+                    opp.time_window.end[:16] if opp.time_window.end else '待定' }}
+                    {% else %}
+                    需核验
+                    {% endif %}
+                </p>
+                {% if opp.time_window.confidence %}
+                <div class="mt-2 w-full bg-indigo-200 rounded-full h-1.5">
+                    <div class="bg-indigo-500 h-1.5 rounded-full"
+                        style="width: {{ (opp.time_window.confidence * 100)|int }}%"></div>
                 </div>
+                {% endif %}
             </div>
             {% endif %}
 
-            <!-- 建议搜索 -->
-            {% if result.opportunities and result.opportunities[0].search_suggestions %}
-            <div class="section-block search-block">
-                <h3>🔍 建议搜索</h3>
-                <div class="search-suggestions">
-                    {% for q in result.opportunities[0].search_suggestions %}
-                    <div class="search-item">
-                        <span>{{ q }}</span>
-                        <button class="btn-copy" onclick="copyText('{{ q }}')">复制</button>
+            <!-- Constraints/Key Numbers -->
+            {% if opp.key_numbers or opp.constraints %}
+            <div class="grid grid-cols-1 gap-4 pt-4 border-t border-slate-100 text-sm">
+                {% if opp.key_numbers %}
+                <div>
+                    <span class="text-slate-500 font-medium">关键参数:</span>
+                    <div class="mt-1 grid grid-cols-2 gap-2">
+                        {% for key, value in opp.key_numbers.items() %}
+                        <div class="bg-slate-50 px-2 py-1 rounded text-slate-700 border border-slate-100">
+                            <span class="block text-xs text-slate-400">{{ key }}</span>
+                            <span class="font-mono font-medium">{{ value }}</span>
+                        </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
                 </div>
-            </div>
-            {% endif %}
-
-            <!-- 证据摘录 -->
-            {% if result.evidence %}
-            <div class="section-block evidence-block">
-                <h3>📝 原文证据</h3>
-                {% for e in result.evidence %}
-                <blockquote class="evidence-quote">
-                    "{{ e.quote }}"
-                    <cite>— {{ e.location_hint }}</cite>
-                </blockquote>
-                {% endfor %}
+                {% endif %}
             </div>
             {% endif %}
         </div>
+        {% endfor %}
+        {% endif %}
 
-        <!-- 右栏：原文 -->
-        <div class="analysis-right">
-            <div class="original-header">
-                <h2>📄 原文内容</h2>
-                {% if content_item.url %}
-                <a href="{{ content_item.url }}" target="_blank" class="btn-external">打开原文 ↗</a>
-                {% endif %}
+        <!-- Risks -->
+        {% if result.risk_warnings %}
+        <div class="card-premium p-6 bg-red-50/30 border-red-100">
+            <h3 class="text-sm font-bold text-red-800 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                    </path>
+                </svg>
+                风险提示
+            </h3>
+            <ul class="space-y-2">
+                {% for risk in result.risk_warnings %}
+                <li class="flex items-start gap-2 text-red-700 text-sm">
+                    <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span>
+                    {{ risk }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- Verification Checklist -->
+        {% if result.opportunities and result.opportunities[0].verification_checklist %}
+        <div class="card-premium p-6">
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide mb-3">✅ 核验清单</h3>
+            <div class="space-y-3">
+                {% for item in result.opportunities[0].verification_checklist %}
+                <label
+                    class="flex items-start gap-3 cursor-pointer group p-2 hover:bg-slate-50 rounded-lg transition-colors -mx-2">
+                    <input type="checkbox"
+                        class="mt-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                    <span class="text-slate-600 group-hover:text-slate-900 transition-colors text-sm leading-relaxed">{{
+                        item }}</span>
+                </label>
+                {% endfor %}
             </div>
-            <div class="original-content">
+        </div>
+        {% endif %}
+
+        <!-- Search Suggestions -->
+        {% if result.opportunities and result.opportunities[0].search_suggestions %}
+        <div class="card-premium p-6">
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide mb-3">🔍 建议搜索</h3>
+            <div class="space-y-2">
+                {% for q in result.opportunities[0].search_suggestions %}
+                <div
+                    class="flex items-center justify-between p-3 bg-slate-50 rounded-lg group hover:bg-white hover:shadow-sm hover:ring-1 hover:ring-slate-200 transition-all">
+                    <span class="text-sm text-slate-700 font-medium truncate">{{ q }}</span>
+                    <button
+                        class="text-xs bg-white border border-slate-200 text-slate-500 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:text-indigo-600 hover:border-indigo-200"
+                        onclick="copyText('{{ q }}')">
+                        复制
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- Right Column: Original Content -->
+    <div class="space-y-4">
+        <div class="flex items-center justify-between px-1">
+            <h2 class="text-lg font-bold text-slate-900">原文内容</h2>
+            {% if content_item.url %}
+            <a href="{{ content_item.url }}" target="_blank"
+                class="text-sm font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                打开原文
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                </svg>
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-full min-h-[500px]">
+            <div class="original-content prose prose-slate max-w-none p-8 overflow-y-auto h-[calc(100vh-10rem)]">
                 {% if content_item.raw_html %}
                 {{ content_item.raw_html | safe }}
                 {% elif content_item.raw_text %}
-                <pre>{{ content_item.raw_text }}</pre>
+                <pre class="whitespace-pre-wrap font-sans text-slate-700">{{ content_item.raw_text }}</pre>
                 {% else %}
-                <p class="no-content">暂无原文内容</p>
+                <div class="flex flex-col items-center justify-center py-20 text-slate-400">
+                    <svg class="w-12 h-12 mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                        </path>
+                    </svg>
+                    <p>暂无原文内容</p>
+                </div>
                 {% endif %}
             </div>
         </div>
     </div>
+
 </div>
 {% endblock %}
 
@@ -192,12 +267,27 @@
 <script>
     function copyText(text) {
         navigator.clipboard.writeText(text).then(() => {
+            // Simple toast notification could be added here
             alert('已复制: ' + text);
         });
     }
 
-    async function updateStatus(status) {
+    async function updateStatus(status, btnElement) {
         try {
+            // Optimistic UI update
+            const buttons = document.querySelectorAll('#statusButtons button');
+            buttons.forEach(btn => {
+                // Reset to default style (simplified for logic)
+                btn.className = "px-3 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-slate-600 border-slate-200 hover:bg-slate-50";
+            });
+
+            // Set active style based on status
+            // (In a real app, I'd move class logic to a function, but hardcoding for simplicity of this script block)
+            if (status === 'executed') btnElement.className = "px-3 py-2 rounded-lg text-sm font-medium border transition-colors bg-green-600 text-white border-green-600 shadow-sm";
+            else if (status === 'skipped') btnElement.className = "px-3 py-2 rounded-lg text-sm font-medium border transition-colors bg-slate-600 text-white border-slate-600 shadow-sm";
+            else if (status === 'watching') btnElement.className = "px-3 py-2 rounded-lg text-sm font-medium border transition-colors bg-amber-500 text-white border-amber-500 shadow-sm";
+            else btnElement.className = "px-3 py-2 rounded-lg text-sm font-medium border transition-colors bg-slate-800 text-white border-slate-800 shadow-sm";
+
             const response = await fetch('/api/analyses/{{ analysis.id }}/status', {
                 method: 'PUT',
                 headers: {
@@ -206,15 +296,10 @@
                 body: JSON.stringify({ action_status: status }),
             });
 
-            if (response.ok) {
-                // 更新按钮状态
-                document.querySelectorAll('.status-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                event.target.classList.add('active');
-            } else {
+            if (!response.ok) {
                 const err = await response.json();
                 alert('更新失败: ' + (err.detail || '未知错误'));
+                // TODO: Revert UI if failed
             }
         } catch (error) {
             alert('更新失败: ' + error.message);

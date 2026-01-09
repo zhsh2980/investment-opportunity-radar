@@ -3,84 +3,109 @@
 {% block title %}Prompt 管理 - 投资机会雷达{% endblock %}
 
 {% block content %}
-<div class="prompts-page">
-    <header class="page-header">
-        <h1>📝 Prompt 管理</h1>
-        <p class="page-desc">管理 DeepSeek 分析使用的提示词模板</p>
-    </header>
+<div class="space-y-8">
+
+    <!-- Header -->
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900">📝 Prompt 管理</h1>
+        <p class="text-slate-500 mt-1">管理 DeepSeek 分析使用的提示词模板与版本控制</p>
+    </div>
 
     {% for name, versions in prompts_by_name.items() %}
-    <section class="prompt-section">
-        <div class="prompt-header">
-            <h2>{{ name }}</h2>
+    <section class="space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+            <h2 class="text-lg font-bold text-slate-900">{{ name }}</h2>
             {% if name in active_prompts %}
-            <span class="active-badge">当前版本: v{{ active_prompts[name].version }}</span>
+            <span
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                当前 v{{ active_prompts[name].version }}
+            </span>
             {% endif %}
         </div>
 
-        <!-- 当前活跃版本 -->
+        <!-- Active Version Card -->
         {% if name in active_prompts %}
         {% set active = active_prompts[name] %}
-        <div class="active-prompt-card">
-            <div class="prompt-meta">
-                <span class="version-tag">v{{ active.version }}</span>
-                <span class="status-active">✓ 活跃</span>
-                <span class="create-time">创建于 {{ active.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
-            </div>
+        <div class="card-premium p-6 bg-white border-l-4 border-l-green-500">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <span class="px-2 py-1 bg-slate-100 text-slate-600 text-xs font-mono rounded">v{{ active.version
+                        }}</span>
+                    <span class="flex items-center gap-1 text-green-600 text-xs font-bold uppercase tracking-wider">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7">
+                            </path>
+                        </svg>
+                        已激活
+                    </span>
+                    <span class="text-xs text-slate-400">创建于 {{ active.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                </div>
 
-            <div class="prompt-content-section">
-                <h4>系统提示词 (System Prompt)</h4>
-                <div class="prompt-textarea-wrapper">
-                    <textarea id="system-{{ name }}" class="prompt-textarea"
-                        readonly>{{ active.system_prompt }}</textarea>
+                <div class="flex gap-2">
+                    <button onclick="enableEdit('{{ name }}')"
+                        class="inline-flex items-center px-3 py-1.5 border border-slate-300 shadow-sm text-xs font-medium rounded text-slate-700 bg-white hover:bg-slate-50 focus:outline-none">
+                        ✏️ 编辑
+                    </button>
+                    <button onclick="copyPrompt('{{ name }}')"
+                        class="inline-flex items-center px-3 py-1.5 border border-slate-300 shadow-sm text-xs font-medium rounded text-slate-700 bg-white hover:bg-slate-50 focus:outline-none">
+                        📋 复制
+                    </button>
                 </div>
             </div>
 
-            <div class="prompt-content-section">
-                <h4>用户提示词模板 (User Prompt Template)</h4>
-                <div class="prompt-textarea-wrapper">
-                    <textarea id="user-{{ name }}" class="prompt-textarea"
-                        readonly>{{ active.user_template }}</textarea>
+            <!-- Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">系统提示词
+                        (System)</label>
+                    <div class="relative rounded-md shadow-sm">
+                        <textarea id="system-{{ name }}" readonly
+                            class="form-textarea block w-full rounded-md border-slate-300 bg-slate-50 text-slate-600 font-mono text-sm h-48 resize-none focus:ring-0 focus:border-slate-300">{{ active.system_prompt }}</textarea>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">用户模板
+                        (User)</label>
+                    <div class="relative rounded-md shadow-sm">
+                        <textarea id="user-{{ name }}" readonly
+                            class="form-textarea block w-full rounded-md border-slate-300 bg-slate-50 text-slate-600 font-mono text-sm h-48 resize-none focus:ring-0 focus:border-slate-300">{{ active.user_template }}</textarea>
+                    </div>
                 </div>
             </div>
 
             {% if active.threshold %}
-            <div class="prompt-info">
-                <span><strong>推送阈值:</strong> {{ active.threshold }} 分</span>
+            <div class="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 text-sm">
+                <span class="text-slate-500">推送阈值:</span>
+                <span class="font-bold text-slate-900">{{ active.threshold }} 分</span>
             </div>
             {% endif %}
-
-            <div class="prompt-actions">
-                <button class="btn-edit" onclick="enableEdit('{{ name }}')">✏️ 编辑</button>
-                <button class="btn-copy" onclick="copyPrompt('{{ name }}')">📋 复制</button>
-            </div>
         </div>
         {% endif %}
 
-        <!-- 历史版本列表 -->
+        <!-- Version History -->
         {% if versions|length > 1 %}
-        <div class="version-history">
-            <h4>📚 历史版本</h4>
-            <table class="version-table">
-                <thead>
+        <div class="card-premium overflow-hidden mt-6">
+            <div class="bg-slate-50 px-6 py-3 border-b border-slate-200">
+                <h4 class="text-xs font-medium text-slate-500 uppercase">历史版本</h4>
+            </div>
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-white">
                     <tr>
-                        <th>版本</th>
-                        <th>状态</th>
-                        <th>创建时间</th>
-                        <th>操作</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">版本</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">创建时间</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">操作</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="bg-white divide-y divide-slate-200">
                     {% for v in versions %}
                     {% if not v.is_active %}
-                    <tr>
-                        <td>v{{ v.version }}</td>
-                        <td><span class="status-inactive">未激活</span></td>
-                        <td>{{ v.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                        <td>
-                            <button class="btn-sm btn-view" onclick="viewVersion({{ v.id }})">查看</button>
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-6 py-3 whitespace-nowrap text-sm font-medium text-slate-600">v{{ v.version }}</td>
+                        <td class="px-6 py-3 whitespace-nowrap text-sm text-slate-500">{{
+                            v.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
                             <form action="/api/prompts/{{ v.id }}/activate" method="POST" style="display:inline;">
-                                <button type="submit" class="btn-sm btn-activate">激活</button>
+                                <button type="submit" class="text-indigo-600 hover:text-indigo-900">激活</button>
                             </form>
                         </td>
                     </tr>
@@ -94,39 +119,70 @@
     {% endfor %}
 
     {% if not prompts_by_name %}
-    <div class="empty-state">
-        <p>暂无 Prompt 配置</p>
-        <p class="hint">请运行 <code>python src/manage.py init-prompts</code> 初始化默认 Prompt</p>
+    <div class="rounded-lg border-2 border-dashed border-slate-300 p-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <span class="mt-2 block text-sm font-medium text-slate-900">暂无 Prompt 配置</span>
+        <span class="mt-1 block text-sm text-slate-500">请运行 <code>python src/manage.py init-prompts</code> 初始化</span>
     </div>
     {% endif %}
 </div>
 
-<!-- 编辑模态框 -->
-<div id="editModal" class="modal" style="display:none;">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>编辑 Prompt</h3>
-            <button class="modal-close" onclick="closeModal()">&times;</button>
+<!-- Edit Modal (Simplified Premium Style) -->
+<div id="editModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog"
+    aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-slate-900 bg-opacity-75 transition-opacity" aria-hidden="true"
+            onclick="closeModal()"></div>
+
+        <!-- Modal Panel -->
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div
+            class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+            <form id="editForm" action="/api/prompts" method="POST">
+                <input type="hidden" name="name" id="editName">
+
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <h3 class="text-lg leading-6 font-medium text-slate-900" id="modal-title">编辑 Prompt</h3>
+                            <div class="mt-4 space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">系统提示词</label>
+                                    <textarea name="system_prompt" id="editSystemPrompt" rows="6"
+                                        class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-slate-300 rounded-md font-mono"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">用户提示词</label>
+                                    <textarea name="user_template" id="editUserTemplate" rows="6"
+                                        class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-slate-300 rounded-md font-mono"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">推送阈值 (0-100)</label>
+                                    <input type="number" name="threshold" id="editThreshold" min="0" max="100"
+                                        class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-slate-300 rounded-md">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="submit"
+                        class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        保存新版本
+                    </button>
+                    <button type="button"
+                        class="mt-3 w-full inline-flex justify-center rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                        onclick="closeModal()">
+                        取消
+                    </button>
+                </div>
+            </form>
         </div>
-        <form id="editForm" action="/api/prompts" method="POST">
-            <input type="hidden" name="name" id="editName">
-            <div class="form-group">
-                <label>系统提示词</label>
-                <textarea name="system_prompt" id="editSystemPrompt" rows="10"></textarea>
-            </div>
-            <div class="form-group">
-                <label>用户提示词模板</label>
-                <textarea name="user_template" id="editUserTemplate" rows="10"></textarea>
-            </div>
-            <div class="form-group">
-                <label>推送阈值</label>
-                <input type="number" name="threshold" id="editThreshold" min="0" max="100" value="60">
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="btn-cancel" onclick="closeModal()">取消</button>
-                <button type="submit" class="btn-save">保存新版本</button>
-            </div>
-        </form>
     </div>
 </div>
 {% endblock %}
@@ -137,11 +193,17 @@
         document.getElementById('editName').value = name;
         document.getElementById('editSystemPrompt').value = document.getElementById('system-' + name).value;
         document.getElementById('editUserTemplate').value = document.getElementById('user-' + name).value;
-        document.getElementById('editModal').style.display = 'flex';
+
+        // Remove 'hidden' class and add 'block' for modal
+        const modal = document.getElementById('editModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('block');
     }
 
     function closeModal() {
-        document.getElementById('editModal').style.display = 'none';
+        const modal = document.getElementById('editModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('block');
     }
 
     function copyPrompt(name) {
@@ -151,10 +213,6 @@
         navigator.clipboard.writeText(text).then(() => {
             alert('已复制到剪贴板');
         });
-    }
-
-    function viewVersion(id) {
-        window.location.href = '/prompts/' + id;
     }
 </script>
 {% endblock %}

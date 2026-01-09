@@ -3,115 +3,141 @@
 {% block title %}系统设置 - 投资机会雷达{% endblock %}
 
 {% block content %}
-<div class="settings-page">
-    <header class="page-header">
-        <h1>⚙️ 系统设置</h1>
-        <p class="page-desc">配置系统运行参数</p>
-    </header>
+<div class="max-w-3xl mx-auto space-y-8">
 
-    <form id="settingsForm" action="/api/settings" method="POST" class="settings-form">
-        <!-- 推送设置 -->
-        <section class="settings-section">
-            <h2>📣 推送设置</h2>
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">⚙️ 系统设置</h1>
+            <p class="text-slate-500 mt-1">配置系统运行参数与偏好</p>
+        </div>
+    </div>
 
-            <div class="setting-item">
-                <div class="setting-info">
-                    <label for="push_score_threshold">推送阈值</label>
-                    <p class="setting-desc">只有评分达到此阈值的机会才会推送到钉钉</p>
+    <form id="settingsForm" action="/api/settings" method="POST" class="space-y-6">
+
+        <!-- Push Settings -->
+        <div class="card-premium p-6 bg-white">
+            <h2 class="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <span
+                    class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">📣</span>
+                推送配置
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="pr-4">
+                    <label for="push_score_threshold" class="block text-sm font-medium text-slate-700">推送阈值 (Score
+                        Threshold)</label>
+                    <p class="text-sm text-slate-500 mt-1">只有评分达到此阈值的机会才会推送到钉钉。默认建议 60 分。</p>
                 </div>
-                <div class="setting-control">
+                <div class="relative">
                     <input type="number" id="push_score_threshold" name="push_score_threshold"
-                        value="{{ settings.push_score_threshold }}" min="0" max="100" step="5">
-                    <span class="unit">分</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- 登录设置 -->
-        <section class="settings-section">
-            <h2>🔐 登录设置</h2>
-
-            <div class="setting-item">
-                <div class="setting-info">
-                    <label for="remember_me_days">记住登录天数</label>
-                    <p class="setting-desc">勾选"记住我"后 Cookie 的有效期</p>
-                </div>
-                <div class="setting-control">
-                    <input type="number" id="remember_me_days" name="remember_me_days"
-                        value="{{ settings.remember_me_days }}" min="1" max="365">
-                    <span class="unit">天</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- 分析设置 -->
-        <section class="settings-section">
-            <h2>🔍 分析设置</h2>
-
-            <div class="setting-item">
-                <div class="setting-info">
-                    <label for="window_days">分析窗口天数</label>
-                    <p class="setting-desc">每次运行时回溯多少天的文章进行分析</p>
-                </div>
-                <div class="setting-control">
-                    <input type="number" id="window_days" name="window_days" value="{{ settings.window_days }}" min="1"
-                        max="7">
-                    <span class="unit">天</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- 定时任务（只读） -->
-        <section class="settings-section">
-            <h2>⏰ 定时任务</h2>
-
-            <div class="setting-item">
-                <div class="setting-info">
-                    <label>调度时间点</label>
-                    <p class="setting-desc">系统每天在这些时间点自动运行分析任务</p>
-                </div>
-                <div class="setting-control readonly">
-                    <div class="schedule-slots">
-                        {% for slot in settings.schedule_slots %}
-                        <span class="slot-badge">{{ slot }}</span>
-                        {% endfor %}
+                        value="{{ settings.push_score_threshold }}" min="0" max="100" step="5"
+                        class="block w-full rounded-md border-slate-300 pr-12 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-lg">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <span class="text-slate-500 sm:text-sm">分</span>
                     </div>
                 </div>
             </div>
-            <p class="setting-note">
-                💡 修改调度时间需要编辑 <code>celery_app.py</code> 并重启 Beat 服务
-            </p>
-        </section>
+        </div>
 
-        <!-- 保存按钮 -->
-        <div class="form-actions">
-            <button type="submit" class="btn-save">💾 保存设置</button>
-            <button type="reset" class="btn-reset">↩️ 重置</button>
+        <!-- Login Settings -->
+        <div class="card-premium p-6 bg-white">
+            <h2 class="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <span
+                    class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center">🔐</span>
+                登录安全
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="pr-4">
+                    <label for="remember_me_days" class="block text-sm font-medium text-slate-700">记住登录天数</label>
+                    <p class="text-sm text-slate-500 mt-1">勾选"记住我"后 Cookie 的有效期。建议 7-30 天。</p>
+                </div>
+                <div class="relative">
+                    <input type="number" id="remember_me_days" name="remember_me_days"
+                        value="{{ settings.remember_me_days }}" min="1" max="365"
+                        class="block w-full rounded-md border-slate-300 pr-12 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-lg">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <span class="text-slate-500 sm:text-sm">天</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Settings -->
+        <div class="card-premium p-6 bg-white">
+            <h2 class="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <span
+                    class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">🔍</span>
+                分析回溯
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="pr-4">
+                    <label for="window_days" class="block text-sm font-medium text-slate-700">回溯窗口</label>
+                    <p class="text-sm text-slate-500 mt-1">每次任务运行时回溯过去多少天的文章。建议 3 天以覆盖周末。</p>
+                </div>
+                <div class="relative">
+                    <input type="number" id="window_days" name="window_days" value="{{ settings.window_days }}" min="1"
+                        max="7"
+                        class="block w-full rounded-md border-slate-300 pr-12 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-lg">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <span class="text-slate-500 sm:text-sm">天</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Info (Readonly) -->
+        <div class="card-premium p-6 bg-slate-50 border border-slate-200">
+            <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                ⏰ 自动调度
+            </h2>
+            <div class="flex flex-wrap gap-2 mb-4">
+                {% for slot in settings.schedule_slots %}
+                <span
+                    class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white border border-slate-200 text-slate-700">
+                    {{ slot }}
+                </span>
+                {% endfor %}
+            </div>
+            <p class="text-xs text-slate-500 flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                修改调度时间需要编辑 <code>config.py</code> 或 <code>celery_app.py</code> 并重启服务。
+            </p>
+        </div>
+
+        <div class="flex items-center justify-end gap-4 pt-4">
+            <button type="reset"
+                class="px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none">
+                重置更改
+            </button>
+            <button type="submit"
+                class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                💾 保存设置
+            </button>
         </div>
     </form>
 
-    <!-- 系统信息 -->
-    <section class="settings-section info-section">
-        <h2>ℹ️ 系统信息</h2>
-        <div class="info-grid">
-            <div class="info-item">
-                <span class="info-label">版本</span>
-                <span class="info-value">v0.1.0</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Python</span>
-                <span class="info-value">3.11</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">数据库</span>
-                <span class="info-value">PostgreSQL</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">缓存</span>
-                <span class="info-value">Redis</span>
-            </div>
+    <!-- App Footer Info -->
+    <div class="grid grid-cols-4 gap-4 pt-8 border-t border-slate-200 opacity-60">
+        <div class="text-center">
+            <span class="block text-xs font-bold text-slate-500 uppercase">Version</span>
+            <span class="block text-sm text-slate-700">v0.1.0</span>
         </div>
-    </section>
+        <div class="text-center">
+            <span class="block text-xs font-bold text-slate-500 uppercase">Python</span>
+            <span class="block text-sm text-slate-700">3.11</span>
+        </div>
+        <div class="text-center">
+            <span class="block text-xs font-bold text-slate-500 uppercase">DB</span>
+            <span class="block text-sm text-slate-700">PostgreSQL</span>
+        </div>
+        <div class="text-center">
+            <span class="block text-xs font-bold text-slate-500 uppercase">UI</span>
+            <span class="block text-sm text-slate-700">Premium</span>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -127,6 +153,11 @@
         });
 
         try {
+            const btn = this.querySelector('button[type="submit"]');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '保存中...';
+
             const response = await fetch('/api/settings', {
                 method: 'POST',
                 headers: {
@@ -136,11 +167,16 @@
             });
 
             if (response.ok) {
-                alert('设置已保存');
+                // Toast would be better, but alert is fine for now
+                alert('系统设置已成功保存');
             } else {
                 const err = await response.json();
                 alert('保存失败: ' + (err.detail || '未知错误'));
             }
+
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+
         } catch (error) {
             alert('保存失败: ' + error.message);
         }

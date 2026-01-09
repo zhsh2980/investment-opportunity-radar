@@ -5,69 +5,97 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录 - 投资机会雷达</title>
-    <meta name="description" content="投资机会雷达 - 智能分析公众号文章中的投资机会">
     <link rel="stylesheet" href="/static/app.css">
+    <link rel="stylesheet" href="/static/pages.css">
 </head>
 
-<body>
-    <div class="login-container">
-        <div class="login-card">
-            <div class="login-header">
-                <div class="logo">📡</div>
-                <h1>投资机会雷达</h1>
-                <p class="subtitle">智能发现投资机会</p>
-            </div>
+<body class="bg-slate-50 login-bg-pattern min-h-screen flex items-center justify-center p-4">
 
-            <form class="login-form" action="/api/auth/login" method="POST">
-                <div class="form-group">
-                    <label for="username">用户名</label>
-                    <input type="text" id="username" name="username" placeholder="请输入用户名" required
-                        autocomplete="username">
+    <div class="w-full max-w-md">
+        <!-- Brand Header -->
+        <div class="text-center mb-8">
+            <span class="text-4xl">📡</span>
+            <h1 class="mt-4 text-2xl font-bold text-slate-900 tracking-tight">投资机会雷达</h1>
+            <p class="mt-2 text-slate-500">智能发现投资机会，每日精选推送</p>
+        </div>
+
+        <!-- Login Card -->
+        <div class="card-premium p-8 bg-white shadow-lg">
+            <form action="/api/auth/login" method="POST" class="space-y-6">
+
+                <!-- Username -->
+                <div>
+                    <label for="username" class="block text-sm font-medium text-slate-700 mb-1">用户名</label>
+                    <input type="text" id="username" name="username" required autocomplete="username"
+                        class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-900 placeholder-slate-400"
+                        placeholder="请输入您的账号">
                 </div>
 
-                <div class="form-group">
-                    <label for="password">密码</label>
-                    <div class="password-wrapper">
-                        <input type="password" id="password" name="password" placeholder="请输入密码" required
-                            autocomplete="current-password">
-                        <button type="button" class="toggle-password" onclick="togglePassword()">
-                            <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                <circle cx="12" cy="12" r="3" />
+                <!-- Password -->
+                <div>
+                    <label for="password" class="block text-sm font-medium text-slate-700 mb-1">密码</label>
+                    <div class="relative">
+                        <input type="password" id="password" name="password" required autocomplete="current-password"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-900 placeholder-slate-400 pr-10"
+                            placeholder="请输入您的密码">
+                        <button type="button"
+                            class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                            onclick="togglePassword()">
+                            <svg class="h-5 w-5 eye-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
-                            <svg class="eye-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" style="display:none;">
-                                <path
-                                    d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                                <line x1="1" y1="1" x2="23" y2="23" />
+                            <svg class="h-5 w-5 eye-off-icon hidden" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                             </svg>
                         </button>
                     </div>
                 </div>
 
-                <div class="form-group checkbox-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="remember_me" id="remember_me">
-                        <span class="checkmark"></span>
-                        记住我（30天内免登录）
+                <!-- Remember Me -->
+                <div class="flex items-center">
+                    <input id="remember_me" name="remember_me" type="checkbox"
+                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded cursor-pointer">
+                    <label for="remember_me" class="ml-2 block text-sm text-slate-600 cursor-pointer">
+                        记住我（30天免登录）
                     </label>
                 </div>
 
-                <button type="submit" class="login-btn">
-                    <span>登录</span>
-                    <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
+                <!-- Submit Button -->
+                <button type="submit"
+                    class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                    登 录
                 </button>
             </form>
-
-            <div class="login-footer">
-                <p>Investment Opportunity Radar</p>
-            </div>
         </div>
+
+        <!-- Footer -->
+        <p class="mt-8 text-center text-xs text-slate-400">
+            &copy; 2026 Investment Opportunity Radar
+        </p>
     </div>
-    <script src="/static/app.js"></script>
+
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const eyeIcon = document.querySelector('.eye-icon');
+            const eyeOffIcon = document.querySelector('.eye-off-icon');
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.classList.add('hidden');
+                eyeOffIcon.classList.remove('hidden');
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.classList.remove('hidden');
+                eyeOffIcon.classList.add('hidden');
+            }
+        }
+    </script>
 </body>
 
 </html>
