@@ -188,8 +188,8 @@ def analyze_article(
         content_text=content_item.raw_text or "",
     )
     
-    # 使用数据库中的 prompt_text（如有），否则用默认模板
-    system_prompt = prompt_version.prompt_text if prompt_version else OPPORTUNITY_ANALYZER_SYSTEM_PROMPT
+    # 使用数据库中的 system_prompt（如有），否则用默认模板
+    system_prompt = prompt_version.system_prompt if prompt_version else OPPORTUNITY_ANALYZER_SYSTEM_PROMPT
     
     result_json = None
     last_error = None
@@ -444,4 +444,67 @@ def push_manual_summary(
         return success
     except Exception as e:
         logger.error(f"推送手动汇总失败: {e}")
+        return False
+
+
+def push_no_opportunity_today(
+    session: Session,
+    analyzed_count: int,
+    run_date: str,
+    slot: str,
+) -> bool:
+    """
+    最后一次定时分析完成后，当天无机会时发送通知
+    
+    Args:
+        session: 数据库会话
+        analyzed_count: 当天最后一轮分析的文章数量
+        run_date: 运行日期
+        slot: 运行时间段
+    """
+    dingtalk = get_dingtalk_client()
+    
+    # 生成幂等 key
+    msg_uuid = generate_msg_uuid(run_date, slot, "no_opportunity_today")
+    
+    text = f"""### 📊 今日分析汇总
+
+**日期**: {run_date}
+
+**最后一轮分析**: {slot}，共分析 {analyzed_count} 篇文章
+
+**分析结果**: 今日暂未发现投资机会
+
+> 稍后将发送完整日报
+"""
+    
+    try:
+        result = dingtalk.send_markdown(
+            title="📊 今日暂无机会",
+            text=text,
+            msg_uuid=msg_uuid,
+        )
+        
+        success = result.get("errcode") == 0
+        
+        # 记录推送日志
+        log = NotificationLog(
+            report_date=run_date,
+            slot=slot,
+            push_type="no_opportunity_today",
+            msg_uuid=msg_uuid,
+            target_url="",
+            title="今日暂无机会",
+            payload={"analyzed_count": analyzed_count},
+            response=result,
+            status=1 if success else 2,
+            error=result.get("errmsg") if not success else None,
+        )
+        session.add(log)
+        session.commit()
+        
+        logger.info(f"已推送'今日暂无机会'通知: {run_date}")
+        return success
+    except Exception as e:
+        logger.error(f"推送'今日暂无机会'通知失败: {e}")
         return False

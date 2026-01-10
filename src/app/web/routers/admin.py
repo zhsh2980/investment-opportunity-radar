@@ -17,9 +17,11 @@ from ...database import SessionLocal
 from ...domain.models import Settings, PromptVersion
 from ...core.security import verify_session_token
 from ...logging_config import get_logger
-from ...tasks.slot import run_slot
+from ...tasks.slot import execute_slot  # 使用普通函数而非 Celery Task
 
 logger = get_logger(__name__)
+
+
 
 router = APIRouter(prefix="/api", tags=["admin"])
 
@@ -446,6 +448,69 @@ async def run_analysis_now(
     logger.info(f"用户 {user.username} 手动触发立即分析: {now_str}")
     
     # 使用 BackgroundTasks 在 Web 容器直接运行，绕过 Celery
-    background_tasks.add_task(run_slot, slot=now_str, manual=True)
+    background_tasks.add_task(execute_slot, slot=now_str, manual=True)
     
     return {"status": "success", "message": "分析任务已在后台启动"}
+
+
+@router.get("/analysis-progress")
+async def get_analysis_progress(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """获取当前分析进度"""
+    user = get_current_user(request, db)
+    
+    from ...domain.models import ContentItem, SlotRun
+    from sqlalchemy import desc, func
+    
+    # 获取待分析文章总数
+    total_pending = db.query(ContentItem).filter(
+        ContentItem.analyzed_status == 0
+    ).count()
+    
+    # 获取正在进行中的 slot_run（status=0 表示进行中）
+    recent_slot = db.query(SlotRun).filter(
+        SlotRun.status == 0  # 进行中
+    ).order_by(desc(SlotRun.started_at)).first()
+    
+    is_running = recent_slot is not None
+    analyzed_count = 0
+    current_article = None
+    started_at = None
+    
+    if is_running and recent_slot:
+        # 统计本次已分析的数量
+        from ...domain.models import AnalysisResult
+        analyzed_count = db.query(AnalysisResult).filter(
+            AnalysisResult.run_id == recent_slot.id
+        ).count()
+        
+        # 获取最近一条已分析的文章（ID最大的）
+        latest_analyzed = db.query(ContentItem).filter(
+            ContentItem.analyzed_status.in_([1, 2])  # 1=成功, 2=失败
+        ).order_by(desc(ContentItem.id)).first()
+        
+        if latest_analyzed:
+            title = latest_analyzed.title
+            if len(title) > 30:
+                title = title[:30] + "..."
+            current_article = {
+                "title": title,
+                "truncated": len(latest_analyzed.title) > 30
+            }
+        
+        started_at = recent_slot.started_at.strftime("%Y-%m-%d %H:%M:%S")
+    
+    # 计算预计剩余时间（每篇约1分钟）
+    remaining = max(0, total_pending - analyzed_count)
+    estimated_remaining_minutes = remaining
+    
+    return {
+        "is_running": is_running,
+        "total_pending": total_pending,
+        "analyzed_count": analyzed_count,
+        "current_article": current_article,
+        "started_at": started_at,
+        "estimated_remaining_minutes": estimated_remaining_minutes
+    }

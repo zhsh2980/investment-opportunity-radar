@@ -33,17 +33,43 @@
 
     <!-- Status Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Card 1: Pending -->
-        <div
+        <!-- Card 1: Analysis Progress -->
+        <div id="analysis-progress-card"
             class="bg-white rounded-lg border border-slate-200 shadow-sm p-6 flex flex-col justify-between h-full hover:shadow-md transition-shadow">
-            <div>
+
+            <!-- 空闲状态 -->
+            <div id="idle-state">
                 <dt class="text-sm font-medium text-slate-500 uppercase tracking-wider">待分析文章</dt>
-                <dd class="mt-2 text-3xl font-bold text-slate-900 leading-none">--</dd>
+                <dd id="pending-count" class="mt-2 text-3xl font-bold text-slate-900 leading-none">--</dd>
+                <div class="mt-4">
+                    <div class="text-sm text-slate-500">今日总计获取</div>
+                </div>
             </div>
-            <div class="mt-4">
-                <div class="text-sm text-slate-500">今日总计获取</div>
+
+            <!-- 分析中状态 -->
+            <div id="analyzing-state" style="display:none;">
+                <dt class="text-sm font-medium text-slate-500 uppercase tracking-wider mb-3">📊 分析进度</dt>
+
+                <!-- 进度条 -->
+                <div class="w-full bg-slate-100 rounded-full h-2 mb-3">
+                    <div id="progress-fill" class="bg-indigo-600 h-2 rounded-full transition-all duration-500"
+                        style="width: 0%"></div>
+                </div>
+
+                <!-- 进度信息 -->
+                <div class="space-y-2">
+                    <div class="text-sm">
+                        <span class="text-slate-600">正在分析:</span>
+                        <span id="current-title" class="text-slate-900 font-medium">--</span>
+                    </div>
+                    <div class="text-sm text-slate-600">
+                        <span id="progress-count">0/0</span> 篇 |
+                        预计剩余: <span id="estimated-time">--</span> 分钟
+                    </div>
+                </div>
             </div>
         </div>
+
 
         <!-- Card 2: Opportunities -->
         <div
@@ -177,6 +203,7 @@
 
             if (response.ok) {
                 showToast('✅ ' + result.message);
+                startProgressPolling();  // 启动进度轮询
             } else {
                 showToast('❌ 启动失败: ' + (result.detail || '未知错误'), false);
             }
@@ -190,5 +217,98 @@
             }, 3000);
         }
     }
+
+    // ===== 进度轮询逻辑 =====
+    let progressInterval = null;
+
+    async function fetchProgress() {
+        try {
+            const response = await fetch('/api/analysis-progress');
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('获取进度失败:', error);
+            return null;
+        }
+    }
+
+    function updateProgressUI(data) {
+        const idleState = document.getElementById('idle-state');
+        const analyzingState = document.getElementById('analyzing-state');
+        const pendingCount = document.getElementById('pending-count');
+        const progressFill = document.getElementById('progress-fill');
+        const currentTitle = document.getElementById('current-title');
+        const progressCount = document.getElementById('progress-count');
+        const estimatedTime = document.getElementById('estimated-time');
+
+        if (data.is_running && data.total_pending > 0) {
+            // 显示分析中状态
+            idleState.style.display = 'none';
+            analyzingState.style.display = 'block';
+
+            // 更新进度条
+            const percent = data.total_pending > 0
+                ? (data.analyzed_count / data.total_pending) * 100
+                : 0;
+            progressFill.style.width = percent + '%';
+
+            // 更新当前文章
+            if (data.current_article && data.current_article.title) {
+                currentTitle.textContent = data.current_article.title;
+            } else {
+                currentTitle.textContent = '准备中...';
+            }
+
+            // 更新进度数字
+            progressCount.textContent = `${data.analyzed_count}/${data.total_pending}`;
+            estimatedTime.textContent = data.estimated_remaining_minutes || '--';
+        } else {
+            // 显示空闲状态
+            idleState.style.display = 'block';
+            analyzingState.style.display = 'none';
+            pendingCount.textContent = data.total_pending || '--';
+        }
+    }
+
+    async function pollProgress() {
+        const data = await fetchProgress();
+        if (data) {
+            updateProgressUI(data);
+
+            // 如果分析完成，停止轮询
+            if (!data.is_running) {
+                stopProgressPolling();
+            }
+        }
+    }
+
+    function startProgressPolling() {
+        if (progressInterval) return; // 防止重复启动
+
+        // 立即执行一次
+        pollProgress();
+
+        // 每5秒轮询一次
+        progressInterval = setInterval(pollProgress, 5000);
+    }
+
+    function stopProgressPolling() {
+        if (progressInterval) {
+            clearInterval(progressInterval);
+            progressInterval = null;
+        }
+    }
+
+    // 页面加载时检查是否有正在进行的分析
+    document.addEventListener('DOMContentLoaded', async () => {
+        const data = await fetchProgress();
+        if (data) {
+            updateProgressUI(data);
+            if (data.is_running) {
+                startProgressPolling();
+            }
+        }
+    });
+
 </script>
 {% endblock %}

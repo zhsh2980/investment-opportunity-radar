@@ -65,7 +65,8 @@ services:
   worker:
     build: .
     container_name: radar-worker
-    command: celery -A src.app.tasks.celery_app worker -l info
+    # -Q 参数指定监听的队列，必须包含 celery_app.py 中 task_routes 定义的所有队列
+    command: celery -A src.app.tasks.celery_app worker -l info -Q celery,slot,analysis
     environment:
       - DATABASE_URL=postgresql://radar:${DB_PASSWORD:-radar_secret}@postgres:5432/radar
       - REDIS_URL=redis://redis:6379/0

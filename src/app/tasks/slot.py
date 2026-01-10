@@ -107,11 +107,18 @@ def is_last_slot_of_day(session, current_slot: str) -> bool:
 @shared_task(bind=True, max_retries=2, default_retry_delay=60)
 def run_slot(self, slot: str, manual: bool = False):
     """
-    执行一个 slot 的完整流程
+    执行一个 slot 的完整流程 (Celery Task Wrapper)
+    """
+    execute_slot(slot, manual)
+
+
+def execute_slot(slot: str, manual: bool = False):
+    """
+    执行一个 slot 的完整流程 (Core Logic)
     
     Args:
         slot: 时段标识，如 "07:00", "12:00", "22:00"
-        manual: 是否为手动触发（True 时无机会也会推送汇总）
+        manual: 是否为手动触发
     """
     settings = get_settings()
     session = SessionLocal()
@@ -172,8 +179,12 @@ def run_slot(self, slot: str, manual: bool = False):
             if not prompt_version:
                 logger.warning("未找到活跃的 Prompt，使用默认模板")
             
-            # 4. 逐篇分析
-            new_analyses = []
+            # 判断是否为当天最后一个时间点（动态获取）
+            is_last_slot = is_last_slot_of_day(session, slot)
+            base_url = f"http://154.8.205.159:8080"  # TODO: 从配置读取
+            
+            # 4. 逐篇分析 + 立即推送
+            pushed_count = 0
             for item in pending_items:
                 try:
                     analysis = analyze_article(
@@ -183,24 +194,39 @@ def run_slot(self, slot: str, manual: bool = False):
                         run_id=slot_run.id,
                     )
                     if analysis:
-                        new_analyses.append(analysis)
                         stats["articles_analyzed"] += 1
                         if analysis.has_opportunity:
                             stats["opportunities_found"] += 1
+                            # 立即推送有机会的文章
+                            if should_push_opportunity(session, analysis, str(run_date), slot):
+                                pushed = push_opportunity_alert(
+                                    session=session,
+                                    analysis=analysis,
+                                    run_date=str(run_date),
+                                    slot=slot,
+                                    base_url=base_url,
+                                )
+                                if pushed:
+                                    pushed_count += 1
+                                    logger.info(f"已推送机会: {item.title[:30]}, score={analysis.score}")
                     else:
                         stats["articles_failed"] += 1
                 except Exception as e:
                     logger.error(f"分析文章失败: {item.title[:30]}, {e}")
                     stats["articles_failed"] += 1
             
-            # 5. 推送逻辑
-            base_url = f"http://154.8.205.159:8080"  # TODO: 从配置读取
-            
-            # 判断是否为当天最后一个时间点（动态获取）
-            is_last_slot = is_last_slot_of_day(session, slot)
-            
+            # 5. 无机会时的通知 + 日报
             if is_last_slot:
-                # 最后一个时间点必推日报
+                # 最后一个时间点：无机会时发送"当天没有机会"通知
+                if pushed_count == 0:
+                    from ..services.analyzer import push_no_opportunity_today
+                    push_no_opportunity_today(
+                        session=session,
+                        analyzed_count=stats["articles_analyzed"],
+                        run_date=str(run_date),
+                        slot=slot,
+                    )
+                # 必发日报（无论有无机会）
                 success = generate_and_push_daily_report(
                     session=session,
                     run_date=run_date,
@@ -208,35 +234,22 @@ def run_slot(self, slot: str, manual: bool = False):
                     base_url=base_url,
                 )
                 stats["pushed"] = success
-            else:
-                # 其他时间点：有机会才推
-                pushed_count = 0
-                for analysis in new_analyses:
-                    if should_push_opportunity(session, analysis, str(run_date), slot):
-                        pushed = push_opportunity_alert(
-                            session=session,
-                            analysis=analysis,
-                            run_date=str(run_date),
-                            slot=slot,
-                            base_url=base_url,
-                        )
-                        if pushed:
-                            pushed_count += 1
-                            # 不再 break，每篇有机会的文章都推送
-                
-                # 手动模式且无机会时，发送汇总通知
-                if manual and pushed_count == 0:
+            elif manual:
+                # 手动模式：无机会时发送汇总通知
+                if pushed_count == 0:
                     from ..services.analyzer import push_manual_summary
                     push_manual_summary(
                         session=session,
-                        analyzed_count=len(new_analyses),
+                        analyzed_count=stats["articles_analyzed"],
                         run_date=str(run_date),
                         slot=slot,
                     )
-                    pushed_count = 1  # 标记已推送
-                
+                stats["pushed"] = pushed_count > 0 or True  # 手动模式总是标记为已推送
+            else:
+                # 非最后一次定时：无机会不发任何通知
                 stats["pushed"] = pushed_count > 0
-                stats["pushed_count"] = pushed_count
+            
+            stats["pushed_count"] = pushed_count
             
             # 6. 更新 slot_run 状态
             slot_run.status = 1  # 成功

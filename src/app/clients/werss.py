@@ -120,7 +120,8 @@ class WeRSSClient:
     def get_mps(self) -> List[Dict[str, Any]]:
         """获取公众号列表"""
         result = self._request("GET", "/mps")
-        return result.get("mps", []) if isinstance(result, dict) else result
+        # WeRSS API 返回格式: {"code":0,"data":{"list":[...]}}
+        return result.get("data", {}).get("list", [])
     
     def get_articles(
         self,
@@ -152,8 +153,9 @@ class WeRSSClient:
             params["mp_id"] = mp_id
         if search:
             params["search"] = search
-        
-        return self._request("GET", "/articles", params=params)
+        result = self._request("GET", "/articles", params=params)
+        # WeRSS API 返回格式: {"code":0,"data":{"list":[...]}}
+        return {"articles": result.get("data", {}).get("list", [])}
     
     def get_articles_by_time_range(
         self,
@@ -225,7 +227,9 @@ class WeRSSClient:
         Returns:
             文章详情
         """
-        return self._request("GET", f"/articles/{article_id}")
+        result = self._request("GET", f"/articles/{article_id}")
+        # WeRSS API 返回格式: {"code":0,"data":{...}}
+        return result.get("data", {})
     
     def close(self):
         """关闭客户端"""
