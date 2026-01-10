@@ -63,7 +63,10 @@
                         <span id="current-title" class="text-slate-900 font-medium">--</span>
                     </div>
                     <div class="text-sm text-slate-600">
-                        <span id="progress-count">0/0</span> 篇 |
+                        共 <span id="total-count">0</span> 篇 | 已分析 <span id="analyzed-count">0</span> 篇 | 剩余 <span
+                            id="remaining-count">0</span> 篇
+                    </div>
+                    <div class="text-sm text-slate-500">
                         预计剩余: <span id="estimated-time">--</span> 分钟
                     </div>
                 </div>
@@ -238,17 +241,19 @@
         const pendingCount = document.getElementById('pending-count');
         const progressFill = document.getElementById('progress-fill');
         const currentTitle = document.getElementById('current-title');
-        const progressCount = document.getElementById('progress-count');
+        const totalCount = document.getElementById('total-count');
+        const analyzedCount = document.getElementById('analyzed-count');
+        const remainingCount = document.getElementById('remaining-count');
         const estimatedTime = document.getElementById('estimated-time');
 
-        if (data.is_running && data.total_pending > 0) {
+        if (data.is_running && data.total_initial > 0) {
             // 显示分析中状态
             idleState.style.display = 'none';
             analyzingState.style.display = 'block';
 
             // 更新进度条
-            const percent = data.total_pending > 0
-                ? (data.analyzed_count / data.total_pending) * 100
+            const percent = data.total_initial > 0
+                ? (data.analyzed_count / data.total_initial) * 100
                 : 0;
             progressFill.style.width = percent + '%';
 
@@ -260,7 +265,9 @@
             }
 
             // 更新进度数字
-            progressCount.textContent = `${data.analyzed_count}/${data.total_pending}`;
+            totalCount.textContent = data.total_initial || 0;
+            analyzedCount.textContent = data.analyzed_count || 0;
+            remainingCount.textContent = data.remaining || 0;
             estimatedTime.textContent = data.estimated_remaining_minutes || '--';
         } else {
             // 显示空闲状态

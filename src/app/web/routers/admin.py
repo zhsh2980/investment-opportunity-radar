@@ -478,8 +478,13 @@ async def get_analysis_progress(
     analyzed_count = 0
     current_article = None
     started_at = None
+    total_initial = 0  # 初始待分析总数
     
     if is_running and recent_slot:
+        # 从 stats 获取初始总数
+        if recent_slot.stats and isinstance(recent_slot.stats, dict):
+            total_initial = recent_slot.stats.get("articles_total", 0)
+        
         # 统计本次已分析的数量
         from ...domain.models import AnalysisResult
         analyzed_count = db.query(AnalysisResult).filter(
@@ -502,14 +507,16 @@ async def get_analysis_progress(
         
         started_at = recent_slot.started_at.strftime("%Y-%m-%d %H:%M:%S")
     
-    # 计算预计剩余时间（每篇约1分钟）
-    remaining = max(0, total_pending - analyzed_count)
+    # 计算剩余数量和预计时间（每篇约1分钟）
+    remaining = max(0, total_initial - analyzed_count)
     estimated_remaining_minutes = remaining
     
     return {
         "is_running": is_running,
-        "total_pending": total_pending,
+        "total_initial": total_initial,  # 初始总数
+        "total_pending": total_pending,  # 当前待分析数（保留兼容）
         "analyzed_count": analyzed_count,
+        "remaining": remaining,  # 剩余数量
         "current_article": current_article,
         "started_at": started_at,
         "estimated_remaining_minutes": estimated_remaining_minutes

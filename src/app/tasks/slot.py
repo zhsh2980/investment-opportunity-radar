@@ -174,6 +174,7 @@ def execute_slot(slot: str, manual: bool = False):
             ).all()
             
             stats["articles_fetched"] = len(pending_items)
+            stats["articles_total"] = len(pending_items)  # 初始总数，用于进度显示
             logger.info(f"待分析文章: {len(pending_items)} 篇")
             
             # 获取活跃的 Prompt
