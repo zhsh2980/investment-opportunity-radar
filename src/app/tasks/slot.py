@@ -32,6 +32,8 @@ from ..services.analyzer import (
     should_push_opportunity,
     push_opportunity_alert,
     generate_msg_uuid,
+    has_content,
+    try_refresh_content,
 )
 from ..clients.dingtalk import get_dingtalk_client
 from ..clients.deepseek import get_deepseek_client
@@ -185,8 +187,17 @@ def execute_slot(slot: str, manual: bool = False):
             
             # 4. 逐篇分析 + 立即推送
             pushed_count = 0
+            skipped_count = 0  # 跳过的无正文文章数
             for item in pending_items:
                 try:
+                    # 检查正文，无正文则尝试重新拉取
+                    if not has_content(item):
+                        item = try_refresh_content(session, item)
+                        if not has_content(item):
+                            logger.info(f"跳过无正文文章: {item.title[:30]}")
+                            skipped_count += 1
+                            continue  # 跳过，不标记已分析
+                    
                     analysis = analyze_article(
                         session=session,
                         content_item=item,
@@ -214,6 +225,10 @@ def execute_slot(slot: str, manual: bool = False):
                 except Exception as e:
                     logger.error(f"分析文章失败: {item.title[:30]}, {e}")
                     stats["articles_failed"] += 1
+            
+            stats["articles_skipped"] = skipped_count
+            if skipped_count > 0:
+                logger.info(f"跳过无正文文章: {skipped_count} 篇")
             
             # 5. 无机会时的通知 + 日报
             if is_last_slot:

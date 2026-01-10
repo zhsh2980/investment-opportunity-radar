@@ -58,6 +58,62 @@ def compute_content_hash(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()[:32]
 
 
+def has_content(item: ContentItem) -> bool:
+    """
+    检查文章是否有正文内容
+    
+    Args:
+        item: 文章对象
+        
+    Returns:
+        True 如果有正文内容，否则 False
+    """
+    # 检查 raw_text 或 raw_html 是否有实际内容
+    if item.raw_text and len(item.raw_text.strip()) > 50:  # 至少 50 字符
+        return True
+    if item.raw_html and len(item.raw_html.strip()) > 100:  # HTML 至少 100 字符
+        return True
+    return False
+
+
+def try_refresh_content(session: Session, item: ContentItem) -> ContentItem:
+    """
+    尝试从 WeRSS 重新获取文章正文
+    
+    当本地文章无正文时，调用此函数重新拉取。
+    如果成功获取到正文，更新数据库并返回更新后的对象。
+    
+    Args:
+        session: 数据库会话
+        item: 文章对象
+        
+    Returns:
+        更新后的文章对象（如果获取到正文）或原对象
+    """
+    werss = get_werss_client()
+    
+    try:
+        logger.info(f"重新拉取文章正文: {item.title[:30]}...")
+        detail = werss.get_article_detail(item.external_id)
+        
+        raw_html = detail.get("content", "")
+        if raw_html and len(raw_html.strip()) > 100:
+            # 成功获取到正文，更新数据库
+            raw_text = html_to_text(raw_html)
+            item.raw_html = raw_html
+            item.raw_text = raw_text
+            item.content_hash = compute_content_hash(raw_text)
+            session.commit()
+            logger.info(f"成功更新文章正文: {item.title[:30]}")
+        else:
+            logger.info(f"WeRSS 仍无正文: {item.title[:30]}")
+            
+    except Exception as e:
+        logger.error(f"重新拉取正文失败: {item.external_id}, {e}")
+    
+    return item
+
+
 def get_active_prompt(session: Session, name: str = "opportunity_analyzer") -> Optional[PromptVersion]:
     """获取当前生效的 Prompt 版本"""
     return session.query(PromptVersion).filter(
