@@ -530,3 +530,49 @@ async def get_analysis_progress(
         "started_at": started_at,
         "estimated_remaining_minutes": estimated_remaining_minutes
     }
+
+
+# ===== 系统状态检测 API =====
+@router.get("/system-status")
+async def get_system_status(request: Request, db: Session = Depends(get_db)):
+    """获取外部服务连接状态"""
+    user = get_current_user(request, db)
+    
+    status = {
+        "werss": {"status": "unknown", "message": "未检测"},
+        "deepseek": {"status": "unknown", "message": "未检测"}
+    }
+    
+    # 检查 WeRSS 连接
+    try:
+        from ...clients.werss import get_werss_client
+        client = get_werss_client()
+        
+        # 检查现有 Token 是否有效
+        if client._is_token_valid():
+            status["werss"] = {"status": "ok", "message": "Token 有效"}
+        else:
+            # 尝试获取新 Token（会自动登录或刷新）
+            client._get_token()
+            status["werss"] = {"status": "ok", "message": "连接正常"}
+    except Exception as e:
+        error_msg = str(e)
+        if len(error_msg) > 50:
+            error_msg = error_msg[:50] + "..."
+        status["werss"] = {"status": "error", "message": f"连接失败: {error_msg}"}
+        logger.warning(f"WeRSS 状态检测失败: {e}")
+    
+    # 检查 DeepSeek API 配置
+    try:
+        from ...config import get_settings
+        settings = get_settings()
+        if settings.deepseek_api_key:
+            # 仅检查 API Key 是否配置，不实际调用（避免消耗额度）
+            key_preview = settings.deepseek_api_key[:8] + "..." if len(settings.deepseek_api_key) > 8 else "***"
+            status["deepseek"] = {"status": "ok", "message": f"已配置 ({key_preview})"}
+        else:
+            status["deepseek"] = {"status": "error", "message": "未配置 API Key"}
+    except Exception as e:
+        status["deepseek"] = {"status": "error", "message": f"配置异常: {str(e)}"}
+    
+    return status
