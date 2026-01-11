@@ -442,6 +442,15 @@ async def run_analysis_now(
     """手动触发立即分析"""
     user = get_current_user(request, db)
     
+    # 检查是否有正在运行的任务
+    from ...domain.models import SlotRun
+    running_task = db.query(SlotRun).filter(SlotRun.status == 0).first()
+    if running_task:
+        return {
+            "status": "error",
+            "message": "有任务正在执行，请稍后再试"
+        }
+    
     # 获取当前时间 HH:MM
     now_str = datetime.now().strftime("%H:%M")
     

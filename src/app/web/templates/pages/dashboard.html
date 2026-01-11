@@ -195,7 +195,7 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            启动中...
+            分析中
         `;
 
         try {
@@ -204,20 +204,22 @@
             });
             const result = await response.json();
 
-            if (response.ok) {
+            if (result.status === 'success') {
                 showToast('✅ ' + result.message);
                 startProgressPolling();  // 启动进度轮询
+                // 成功时保持禁用状态，等待分析完成后由轮询逻辑恢复
             } else {
-                showToast('❌ 启动失败: ' + (result.detail || '未知错误'), false);
+                // 失败（如有任务正在执行）
+                showToast('⚠️ ' + result.message, false);
+                // 恢复按钮
+                btn.disabled = false;
+                btn.innerHTML = originalText;
             }
         } catch (error) {
             showToast('❌ 请求失败: ' + error.message, false);
-        } finally {
-            // 3秒后恢复按钮
-            setTimeout(() => {
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            }, 3000);
+            // 恢复按钮
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         }
     }
 
@@ -304,6 +306,22 @@
             clearInterval(progressInterval);
             progressInterval = null;
         }
+        // 恢复"立即分析"按钮
+        resetAnalysisButton();
+    }
+
+    function resetAnalysisButton() {
+        const btn = document.querySelector('button[onclick*="runAnalysisNow"]');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                立即分析
+            `;
+        }
     }
 
     // 页面加载时检查是否有正在进行的分析
@@ -313,6 +331,18 @@
             updateProgressUI(data);
             if (data.is_running) {
                 startProgressPolling();
+                // 禁用按钮并显示分析中状态
+                const btn = document.querySelector('button[onclick*="runAnalysisNow"]');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = `
+                        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        分析中
+                    `;
+                }
             }
         }
     });
