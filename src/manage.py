@@ -111,8 +111,6 @@ def init_prompts():
     from src.app.core.prompts import (
         OPPORTUNITY_ANALYZER_SYSTEM_PROMPT, 
         OPPORTUNITY_ANALYZER_USER_TEMPLATE,
-        DAILY_DIGEST_SYSTEM_PROMPT,
-        DAILY_DIGEST_USER_TEMPLATE
     )
     
     settings = get_settings()
@@ -126,12 +124,6 @@ def init_prompts():
             OPPORTUNITY_ANALYZER_SYSTEM_PROMPT, 
             OPPORTUNITY_ANALYZER_USER_TEMPLATE, 
             60
-        ),
-        (
-            "daily_digest", 
-            DAILY_DIGEST_SYSTEM_PROMPT, 
-            DAILY_DIGEST_USER_TEMPLATE, 
-            None
         ),
     ]
     
@@ -158,6 +150,54 @@ def init_prompts():
         
         session.commit()
         click.echo("✅ Prompt 模板初始化完成")
+    finally:
+        session.close()
+
+
+@cli.command()
+def update_prompts():
+    """强制更新 Prompt 模板（覆盖现有版本）"""
+    from src.app.core.prompts import (
+        OPPORTUNITY_ANALYZER_SYSTEM_PROMPT, 
+        OPPORTUNITY_ANALYZER_USER_TEMPLATE,
+    )
+    
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    
+    try:
+        # 1. 删除 daily_digest 相关的所有记录
+        deleted = session.query(PromptVersion).filter(
+            PromptVersion.name == "daily_digest"
+        ).delete()
+        click.echo(f"  🗑️ 已删除 {deleted} 条 daily_digest 记录")
+        
+        # 2. 更新 opportunity_analyzer
+        existing = session.query(PromptVersion).filter(
+            PromptVersion.name == "opportunity_analyzer",
+            PromptVersion.is_active == True,
+        ).first()
+        
+        if existing:
+            existing.system_prompt = OPPORTUNITY_ANALYZER_SYSTEM_PROMPT
+            existing.user_template = OPPORTUNITY_ANALYZER_USER_TEMPLATE
+            click.echo(f"  ✏️ opportunity_analyzer v{existing.version} 已更新")
+        else:
+            prompt = PromptVersion(
+                name="opportunity_analyzer",
+                version=1,
+                is_active=True,
+                threshold=60,
+                system_prompt=OPPORTUNITY_ANALYZER_SYSTEM_PROMPT,
+                user_template=OPPORTUNITY_ANALYZER_USER_TEMPLATE,
+            )
+            session.add(prompt)
+            click.echo("  + opportunity_analyzer v1 已创建并激活")
+        
+        session.commit()
+        click.echo("✅ Prompt 模板更新完成")
     finally:
         session.close()
 
