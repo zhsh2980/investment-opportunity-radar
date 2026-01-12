@@ -12,6 +12,13 @@ from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import text
+import redis
+import socket
+import http.client
+import json
+import os
+from ...tasks.celery_app import app as celery_app
 
 from ...database import SessionLocal
 from ...domain.models import Settings, PromptVersion
@@ -574,5 +581,219 @@ async def get_system_status(request: Request, db: Session = Depends(get_db)):
             status["deepseek"] = {"status": "error", "message": "未配置 API Key"}
     except Exception as e:
         status["deepseek"] = {"status": "error", "message": f"配置异常: {str(e)}"}
+    
+    return status
+
+@router.get("/health-detail")
+async def get_health_detail(request: Request, db: Session = Depends(get_db)):
+    """获取详细系统状态（包含 Celery 等）"""
+    user = get_current_user(request, db)
+    
+    status = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "services": []
+    }
+    
+    # 1. Web 服务
+    status["services"].append({
+        "name": "Web 服务",
+        "status": "ok",
+        "message": "运行正常",
+        "icon": "globe"
+    })
+    
+    # 2. Database
+    try:
+        db.execute(text("SELECT 1"))
+        status["services"].append({
+            "name": "PostgreSQL",
+            "status": "ok",
+            "message": "连接正常",
+            "icon": "database"
+        })
+    except Exception as e:
+        status["services"].append({
+            "name": "PostgreSQL",
+            "status": "error",
+            "message": "连接失败",
+            "detail": str(e),
+            "icon": "database"
+        })
+        
+    # 3. Redis
+    try:
+        from ...config import get_settings
+        settings = get_settings()
+        r = redis.from_url(settings.redis_url, socket_timeout=1)
+        if r.ping():
+             status["services"].append({
+                "name": "Redis",
+                "status": "ok",
+                "message": "连接正常",
+                "icon": "server"
+            })
+        else:
+             status["services"].append({
+                "name": "Redis",
+                "status": "error",
+                "message": "无响应",
+                "icon": "server"
+            })
+    except Exception as e:
+        status["services"].append({
+            "name": "Redis",
+            "status": "error",
+            "message": "连接异常",
+            "detail": str(e),
+            "icon": "server"
+        })
+
+    # 4. Celery Worker (使用 inspect)
+    try:
+        i = celery_app.control.inspect(timeout=1.0)
+        active = i.ping()
+        if active:
+            # 获取活跃节点的名称
+            worker_names = list(active.keys())
+            count = len(worker_names)
+            status["services"].append({
+                "name": "Celery Worker",
+                "status": "ok",
+                "message": f"{count} 个活跃节点",
+                "detail": ", ".join(worker_names),
+                "icon": "cpu"
+            })
+        else:
+            status["services"].append({
+                "name": "Celery Worker",
+                "status": "error",
+                "message": "未检测到活跃节点",
+                "icon": "cpu"
+            })
+    except Exception as e:
+        status["services"].append({
+            "name": "Celery Worker",
+            "status": "warning",
+            "message": "检测超时或失败",
+            "detail": str(e),
+            "icon": "cpu"
+        })
+
+    # 5. Celery Beat (通过 Docker API 检查容器)
+    beat_status = {"name": "Celery Beat", "icon": "clock"}
+    if os.path.exists("/var/run/docker.sock"):
+        try:
+            class UnixHTTPConnection(http.client.HTTPConnection):
+                def __init__(self, socket_path):
+                    super().__init__("localhost")
+                    self.socket_path = socket_path
+                def connect(self):
+                    self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    self.sock.connect(self.socket_path)
+            
+            conn = UnixHTTPConnection("/var/run/docker.sock")
+            conn.request("GET", "/containers/radar-beat/json")
+            response = conn.getresponse()
+            
+            if response.status == 200:
+                data = json.loads(response.read().decode())
+                state = data.get("State", {})
+                if state.get("Running"):
+                    beat_status.update({
+                        "status": "ok", 
+                        "message": "运行正常 (Docker)"
+                    })
+                else:
+                    beat_status.update({
+                        "status": "error", 
+                        "message": f"容器已停止 ({state.get('Status')})"
+                    })
+            else:
+                 beat_status.update({
+                    "status": "warning", 
+                    "message": "容器未找到"
+                })
+            conn.close()
+        except Exception as e:
+            beat_status.update({
+                "status": "warning", 
+                "message": "Docker API 异常",
+                "detail": str(e)
+            })
+    else:
+        beat_status.update({
+            "status": "info", 
+            "message": "无法检测 (无 Docker 权限)"
+        })
+    status["services"].append(beat_status)
+
+    # 6. WeRSS
+    try:
+        from ...clients.werss import get_werss_client
+        client = get_werss_client()
+        if client._is_token_valid():
+             status["services"].append({
+                "name": "WeRSS 连接",
+                "status": "ok",
+                "message": "Token 有效",
+                "icon": "rss"
+            })
+        else:
+             # 尝试刷新
+             try:
+                 client._get_token()
+                 status["services"].append({
+                    "name": "WeRSS 连接",
+                    "status": "ok",
+                    "message": "连接正常 (已刷新)",
+                    "icon": "rss"
+                })
+             except Exception:
+                 status["services"].append({
+                    "name": "WeRSS 连接",
+                    "status": "error",
+                    "message": "Token 无效且刷新失败",
+                    "icon": "rss"
+                })
+    except Exception as e:
+        status["services"].append({
+            "name": "WeRSS 连接",
+            "status": "error",
+            "message": "连接失败",
+            "detail": str(e),
+            "icon": "rss"
+        })
+
+    # 7. DeepSeek API
+    try:
+        from ...config import get_settings
+        settings = get_settings()
+        if settings.deepseek_api_key:
+            key_preview = "***" + settings.deepseek_api_key[-4:] if len(settings.deepseek_api_key) > 4 else "***"
+            status["services"].append({
+                "name": "DeepSeek API",
+                "status": "ok",
+                "message": f"已配置 (结尾: {key_preview})",
+                "icon": "zap"
+            })
+        else:
+             status["services"].append({
+                "name": "DeepSeek API",
+                "status": "error",
+                "message": "未配置 API Key",
+                "icon": "zap"
+            })
+    except Exception as e:
+        status["services"].append({
+            "name": "DeepSeek API",
+            "status": "error",
+            "message": "配置检查异常",
+            "detail": str(e),
+            "icon": "zap"
+        })
+        
+    # 计算总体状态
+    has_error = any(s.get("status") == "error" for s in status["services"])
+    status["overall"] = "error" if has_error else "ok"
     
     return status

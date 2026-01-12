@@ -2,6 +2,7 @@
 投资机会雷达 - FastAPI 主应用入口
 """
 from contextlib import asynccontextmanager
+from  datetime import datetime
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -69,9 +70,55 @@ app.include_router(admin.router)
 
 # ===== 健康检查 =====
 @app.get("/healthz")
-async def healthz():
-    """健康检查端点"""
-    return {"status": "ok", "service": "radar"}
+async def healthz(detailed: bool = False):
+    """
+    健康检查端点
+    - 默认模式：仅返回服务存活状态
+    - 详细模式 (detailed=true)：检查 DB 和 Redis 连接
+    """
+    if not detailed:
+        return {"status": "ok", "service": "radar"}
+    
+    # 详细检查
+    health_status = {
+        "status": "ok",
+        "service": "radar",
+        "timestamp": datetime.now().isoformat(),
+        "components": {}
+    }
+    
+    # 检查数据库
+    try:
+        from .database import SessionLocal
+        from sqlalchemy import text
+        db = SessionLocal()
+        try:
+            db.execute(text("SELECT 1"))
+            health_status["components"]["database"] = "ok"
+        except Exception as e:
+            health_status["components"]["database"] = f"error: {str(e)}"
+            health_status["status"] = "degraded"
+        finally:
+            db.close()
+    except Exception as e:
+        health_status["components"]["database"] = f"connection_error: {str(e)}"
+        health_status["status"] = "degraded"
+        
+    # 检查 Redis
+    try:
+        import redis
+        settings = get_settings()
+        r = redis.from_url(settings.redis_url, socket_timeout=1)
+        if r.ping():
+            health_status["components"]["redis"] = "ok"
+        else:
+            health_status["components"]["redis"] = "error: ping_failed"
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["components"]["redis"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+        
+    return health_status
 
 
 # ===== 登录页面 =====

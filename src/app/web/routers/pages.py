@@ -136,6 +136,21 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     })
 
 
+
+# ===== 系统状态页 =====
+@router.get("/health", response_class=HTMLResponse)
+async def health_page(request: Request, db: Session = Depends(get_db)):
+    """系统状态页"""
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login?next=/health", status_code=303)
+    
+    return templates.TemplateResponse("pages/health.html", {
+        "request": request,
+        "user": user,
+    })
+
+
 # ===== 分析详情页 =====
 @router.get("/analysis/{analysis_id}", response_class=HTMLResponse)
 async def analysis_detail(
