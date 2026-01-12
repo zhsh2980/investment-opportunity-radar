@@ -31,7 +31,7 @@ class DeepSeekClient:
     def chat_completion(
         self,
         messages: list,
-        max_tokens: int = 4096,
+        max_tokens: int = 6144,
         temperature: float = 0.0,
         json_mode: bool = True,
     ) -> Tuple[str, Optional[str]]:
@@ -90,7 +90,7 @@ class DeepSeekClient:
         self,
         system_prompt: str,
         article_content: str,
-        max_tokens: int = 4096,
+        max_tokens: int = 6144,
     ) -> Dict[str, Any]:
         """
         分析文章，返回结构化结果
