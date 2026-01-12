@@ -237,14 +237,8 @@ def execute_slot(slot: str, manual: bool = False):
             # 5. 无机会时的通知 + 日报
             if is_last_slot:
                 # 最后一个时间点：无机会时发送"当天没有机会"通知
-                if pushed_count == 0:
-                    from ..services.analyzer import push_no_opportunity_today
-                    push_no_opportunity_today(
-                        session=session,
-                        analyzed_count=stats["articles_analyzed"],
-                        run_date=str(run_date),
-                        slot=slot,
-                    )
+                # 最后一个时间点：无论有无机会，都必发日报
+                # (移除 push_no_opportunity_today，避免重复通知)
                 # 必发日报（无论有无机会）
                 success = generate_and_push_daily_report(
                     session=session,
@@ -345,8 +339,16 @@ def generate_and_push_daily_report(
             digest_md = digest_result.get("digest_md", "")
             has_opportunity = digest_result.get("has_opportunity", False)
         except Exception as e:
-            logger.error(f"日报生成失败: {e}")
-            digest_md = f"## {run_date} 日报\n\n日报生成失败，请稍后刷新。\n\n错误: {e}"
+            logger.error(f"日报 AI 生成失败: {e}")
+            # 降级方案：生成简单列表
+            digest_md = f"## {run_date} 日报 (AI 生成遇到问题)\n\n"
+            digest_md += f"**统计**: 共分析 {total_articles} 篇文章，发现 {total_opportunities} 个机会\n\n"
+            digest_md += "### 文章列表\n"
+            for a in analyses_compact:
+                icon = "🎯" if a["has_opportunity"] and a["score"] >= threshold else "📄"
+                digest_md += f"- {icon} [{a['title']}]({a['analysis_url']}) ({a['score']}分)\n"
+            
+            # 手动计算 has_opportunity
             has_opportunity = total_opportunities > 0
     else:
         digest_md = f"## {run_date} 日报\n\n**今日无新文章分析。**"
