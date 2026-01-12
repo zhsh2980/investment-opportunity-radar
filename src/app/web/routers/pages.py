@@ -271,7 +271,7 @@ async def history(
             ContentItem.mp_name.ilike(f"%{keyword}%")
         )
     
-    analyses = query.order_by(desc(AnalysisResult.score)).limit(100).all()
+    analyses = query.order_by(desc(ContentItem.published_at)).limit(100).all()
     
     return templates.TemplateResponse("pages/history.html", {
         "request": request,
