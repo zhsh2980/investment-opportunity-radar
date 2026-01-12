@@ -5,6 +5,9 @@ docs/WeRSS相关  这个是项目部署文档
 docs/开发工作流.md  这是工作开发的工作流程
 docs/key    用部署相关的一些 `key`，这个不可以提交到 GitHub.
 
+## SSH 连接
+服务器 SSH 连接命令参见 `docs/key/ssh_commands.md`（该文件不会提交到 GitHub）
+
 ## 常用脚本
 scripts/deploy.sh  一键部署脚本：服务器拉取代码并重启服务（web/worker/beat）
 
