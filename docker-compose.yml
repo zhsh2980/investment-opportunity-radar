@@ -42,7 +42,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://radar:${DB_PASSWORD:-radar_secret}@postgres:5432/radar
       - REDIS_URL=redis://redis:6379/0
-      - WERSS_BASE_URL=http://host.docker.internal:8001
+      - WERSS_BASE_URL=${WERSS_BASE_URL:-http://host.docker.internal:8001}
       - WERSS_USERNAME=${WERSS_USERNAME}
       - WERSS_PASSWORD=${WERSS_PASSWORD}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
@@ -72,7 +72,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://radar:${DB_PASSWORD:-radar_secret}@postgres:5432/radar
       - REDIS_URL=redis://redis:6379/0
-      - WERSS_BASE_URL=http://host.docker.internal:8001
+      - WERSS_BASE_URL=${WERSS_BASE_URL:-http://host.docker.internal:8001}
       - WERSS_USERNAME=${WERSS_USERNAME}
       - WERSS_PASSWORD=${WERSS_PASSWORD}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
