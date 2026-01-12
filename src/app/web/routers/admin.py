@@ -440,6 +440,33 @@ async def update_analysis_status(
 
 
 
+# ===== 辅助函数 =====
+def check_and_fix_stale_slots(db: Session):
+    """检查并修复陈旧的 slot_run (超过30分钟仍为进行中)"""
+    from ...domain.models import SlotRun
+    from datetime import timedelta
+    
+    # 定义超时阈值 (30分钟)
+    # 注意：started_at 存储的是 UTC 时间（如果 default=datetime.utcnow）
+    # 但根据 debug 经验，数据库中可能是 naive time (且实际上是 UTC)
+    timeout_threshold = datetime.utcnow() - timedelta(minutes=30)
+    
+    # 查找陈旧任务
+    stale_tasks = db.query(SlotRun).filter(
+        SlotRun.status == 0,  # 进行中
+        SlotRun.started_at < timeout_threshold
+    ).all()
+    
+    if stale_tasks:
+        for task in stale_tasks:
+            task.status = 2  # 失败
+            task.error = "Task timed out (stale check)"
+            task.finished_at = datetime.utcnow()
+            logger.warning(f"发现陈旧任务，已标记为失败: ID={task.id}, Date={task.run_date}, Slot={task.slot}")
+        
+        db.commit()
+
+
 @router.post("/run-now")
 async def run_analysis_now(
     request: Request,
@@ -448,6 +475,9 @@ async def run_analysis_now(
 ):
     """手动触发立即分析"""
     user = get_current_user(request, db)
+    
+    # 先清理陈旧任务
+    check_and_fix_stale_slots(db)
     
     # 检查是否有正在运行的任务
     from ...domain.models import SlotRun
@@ -476,6 +506,9 @@ async def get_analysis_progress(
 ):
     """获取当前分析进度"""
     user = get_current_user(request, db)
+    
+    # 先清理陈旧任务
+    check_and_fix_stale_slots(db)
     
     from ...domain.models import ContentItem, SlotRun
     from sqlalchemy import desc, func
