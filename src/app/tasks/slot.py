@@ -36,8 +36,6 @@ from ..services.analyzer import (
     try_refresh_content,
 )
 from ..clients.dingtalk import get_dingtalk_client
-from ..clients.deepseek import get_deepseek_client
-from ..core.prompts import DAILY_DIGEST_SYSTEM_PROMPT, DAILY_DIGEST_USER_TEMPLATE
 from ..config import get_settings
 from ..logging_config import get_logger
 
@@ -292,7 +290,7 @@ def generate_and_push_daily_report(
     base_url: str,
 ) -> bool:
     """
-    生成并推送日报（22:00 必推）
+    生成并推送日报（拼装模式，不再调用 AI）
     """
     logger.info(f"开始生成日报: {run_date}")
     
@@ -302,9 +300,46 @@ def generate_and_push_daily_report(
             ContentItem.published_at >= datetime.combine(run_date, datetime.min.time()),
             ContentItem.published_at < datetime.combine(run_date + timedelta(days=1), datetime.min.time()),
         )
-    ).all()
+    ).order_by(AnalysisResult.score.desc()).all()
     
-    # 构建 compact 结构
+    # 获取阈值
+    threshold = get_setting_value(session, "push_score_threshold", 60)
+    
+    # 统计
+    total_articles = len(today_analyses)
+    opportunities = [a for a in today_analyses if a.has_opportunity and a.score >= threshold]
+    total_opportunities = len(opportunities)
+    
+    # 构建日报内容（拼装模式）
+    if total_articles > 0:
+        status_emoji = "✅" if total_opportunities > 0 else "📭"
+        status_text = f"发现 {total_opportunities} 个机会" if total_opportunities > 0 else "暂无机会"
+        
+        digest_md = f"## 📊 {run_date} 投资机会日报\n\n"
+        digest_md += f"**状态**: {status_emoji} {status_text}\n\n"
+        digest_md += f"**统计**: 共分析 {total_articles} 篇文章\n\n"
+        digest_md += "---\n\n"
+        
+        for a in today_analyses:
+            item = a.content_item
+            icon = "🎯" if a.has_opportunity and a.score >= threshold else "📄"
+            
+            # 获取 content_abstract（新字段）或 fallback 到 summary
+            content_abstract = a.result_json.get("content_abstract", "") or a.summary_md or ""
+            
+            digest_md += f"### {icon} [{a.score}分] {item.title}\n\n"
+            digest_md += f"**来源**: {item.mp_name or '未知'}\n\n"
+            if content_abstract:
+                digest_md += f"> {content_abstract[:300]}\n\n"
+            digest_md += f"[查看详情]({base_url}/analysis/{a.id})\n\n"
+            digest_md += "---\n\n"
+        
+        has_opportunity = total_opportunities > 0
+    else:
+        digest_md = f"## 📊 {run_date} 投资机会日报\n\n**今日无新文章分析。**"
+        has_opportunity = False
+    
+    # 构建 compact 结构用于存储
     analyses_compact = []
     for a in today_analyses:
         item = a.content_item
@@ -316,43 +351,10 @@ def generate_and_push_daily_report(
             "score": a.score,
             "has_opportunity": a.has_opportunity,
             "top_type": opp_types[0] if opp_types else "",
-            "summary": a.summary_md[:200],
+            "content_abstract": a.result_json.get("content_abstract", ""),
+            "summary": a.summary_md[:200] if a.summary_md else "",
             "analysis_url": f"{base_url}/analysis/{a.id}",
         })
-    
-    # 获取阈值
-    threshold = get_setting_value(session, "push_score_threshold", 60)
-    
-    # 统计
-    total_articles = len(analyses_compact)
-    opportunities = [a for a in analyses_compact if a["has_opportunity"] and a["score"] >= threshold]
-    total_opportunities = len(opportunities)
-    
-    # 生成日报内容（调用 DeepSeek 或使用简单模板）
-    if total_articles > 0:
-        try:
-            digest_result = generate_daily_digest(
-                date=str(run_date),
-                threshold=threshold,
-                analyses=analyses_compact,
-            )
-            digest_md = digest_result.get("digest_md", "")
-            has_opportunity = digest_result.get("has_opportunity", False)
-        except Exception as e:
-            logger.error(f"日报 AI 生成失败: {e}")
-            # 降级方案：生成简单列表
-            digest_md = f"## {run_date} 日报 (AI 生成遇到问题)\n\n"
-            digest_md += f"**统计**: 共分析 {total_articles} 篇文章，发现 {total_opportunities} 个机会\n\n"
-            digest_md += "### 文章列表\n"
-            for a in analyses_compact:
-                icon = "🎯" if a["has_opportunity"] and a["score"] >= threshold else "📄"
-                digest_md += f"- {icon} [{a['title']}]({a['analysis_url']}) ({a['score']}分)\n"
-            
-            # 手动计算 has_opportunity
-            has_opportunity = total_opportunities > 0
-    else:
-        digest_md = f"## {run_date} 日报\n\n**今日无新文章分析。**"
-        has_opportunity = False
     
     # 保存日报
     report = session.query(DailyReport).filter(DailyReport.report_date == run_date).first()
@@ -417,23 +419,3 @@ def generate_and_push_daily_report(
     except Exception as e:
         logger.error(f"日报推送异常: {e}")
         return False
-
-
-def generate_daily_digest(date: str, threshold: int, analyses: list) -> dict:
-    """
-    使用 DeepSeek 生成日报内容
-    """
-    deepseek = get_deepseek_client()
-    
-    user_prompt = DAILY_DIGEST_USER_TEMPLATE.format(
-        date=date,
-        threshold=threshold,
-        today_analyses_json=json.dumps(analyses, ensure_ascii=False, indent=2),
-    )
-    
-    result = deepseek.analyze_article(
-        system_prompt=DAILY_DIGEST_SYSTEM_PROMPT,
-        article_content=user_prompt,
-    )
-    
-    return result
