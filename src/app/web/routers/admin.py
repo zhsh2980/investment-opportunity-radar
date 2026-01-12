@@ -679,6 +679,54 @@ async def get_health_detail(request: Request, db: Session = Depends(get_db)):
             "icon": "cpu"
         })
 
+    # 5. Celery Beat (通过 Docker API 检查容器)
+    beat_status = {"name": "Celery Beat", "icon": "clock"}
+    if os.path.exists("/var/run/docker.sock"):
+        try:
+            class UnixHTTPConnection(http.client.HTTPConnection):
+                def __init__(self, socket_path):
+                    super().__init__("localhost")
+                    self.socket_path = socket_path
+                def connect(self):
+                    self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    self.sock.connect(self.socket_path)
+            
+            conn = UnixHTTPConnection("/var/run/docker.sock")
+            conn.request("GET", "/containers/radar-beat/json")
+            response = conn.getresponse()
+            
+            if response.status == 200:
+                data = json.loads(response.read().decode())
+                state = data.get("State", {})
+                if state.get("Running"):
+                    beat_status.update({
+                        "status": "ok", 
+                        "message": "运行正常 (Docker)"
+                    })
+                else:
+                    beat_status.update({
+                        "status": "error", 
+                        "message": f"容器已停止 ({state.get('Status')})"
+                    })
+            else:
+                 beat_status.update({
+                    "status": "warning", 
+                    "message": "容器未找到"
+                })
+            conn.close()
+        except Exception as e:
+            beat_status.update({
+                "status": "warning", 
+                "message": "Docker API 异常",
+                "detail": str(e)
+            })
+    else:
+        beat_status.update({
+            "status": "info", 
+            "message": "无法检测 (无 Docker 权限)"
+        })
+    status["services"].append(beat_status)
+
 
 
     # 6. WeRSS

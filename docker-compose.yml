@@ -52,6 +52,8 @@ services:
       - RADAR_ADMIN_USERNAME=${RADAR_ADMIN_USERNAME:-admin}
       - RADAR_ADMIN_PASSWORD=${RADAR_ADMIN_PASSWORD}
       - TZ=Asia/Shanghai
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "8000:8000"
     depends_on:
