@@ -228,6 +228,33 @@ async def activate_prompt(
     return RedirectResponse(url="/prompts", status_code=303)
 
 
+@router.delete("/prompts/{prompt_id}")
+async def delete_prompt(
+    prompt_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """删除指定的 Prompt 版本（不能删除当前激活版本）"""
+    user = get_current_user(request, db)
+    
+    prompt = db.query(PromptVersion).filter(PromptVersion.id == prompt_id).first()
+    if not prompt:
+        raise HTTPException(status_code=404, detail="Prompt 不存在")
+    
+    if prompt.is_active:
+        raise HTTPException(status_code=400, detail="不能删除当前激活的版本")
+    
+    version = prompt.version
+    name = prompt.name
+    
+    db.delete(prompt)
+    db.commit()
+    
+    logger.info(f"用户 {user.username} 删除了 Prompt: {name} v{version}")
+    
+    return {"status": "success", "message": f"已删除 {name} v{version}"}
+
+
 @router.get("/prompts/{prompt_id}")
 async def get_prompt(
     prompt_id: int,

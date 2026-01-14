@@ -104,10 +104,11 @@
                         <td class="px-6 py-3 whitespace-nowrap text-sm font-medium text-slate-600">v{{ v.version }}</td>
                         <td class="px-6 py-3 whitespace-nowrap text-sm text-slate-500">{{
                             v.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                        <td class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
-                            <form action="/api/prompts/{{ v.id }}/activate" method="POST" style="display:inline;">
-                                <button type="submit" class="text-indigo-600 hover:text-indigo-900">激活</button>
-                            </form>
+                        <td class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium space-x-3">
+                            <button onclick="activateVersion({{ v.id }})"
+                                class="text-indigo-600 hover:text-indigo-900">激活</button>
+                            <button onclick="deleteVersion({{ v.id }}, {{ v.version }})"
+                                class="text-red-600 hover:text-red-900">删除</button>
                         </td>
                     </tr>
                     {% endif %}
@@ -257,6 +258,45 @@
         } finally {
             submitBtn.textContent = originalText;
             submitBtn.disabled = false;
+        }
+    }
+
+    async function activateVersion(promptId) {
+        try {
+            const response = await fetch(`/api/prompts/${promptId}/activate`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                const data = await response.json();
+                alert('❌ 激活失败: ' + (data.detail || '未知错误'));
+            }
+        } catch (error) {
+            alert('❌ 激活失败: ' + error.message);
+        }
+    }
+
+    async function deleteVersion(promptId, version) {
+        if (!confirm(`确定要删除 v${version} 吗？此操作不可撤销。`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/prompts/${promptId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert('✅ ' + data.message);
+                window.location.reload();
+            } else {
+                alert('❌ 删除失败: ' + (data.detail || '未知错误'));
+            }
+        } catch (error) {
+            alert('❌ 删除失败: ' + error.message);
         }
     }
 </script>
