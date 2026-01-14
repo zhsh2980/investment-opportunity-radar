@@ -197,7 +197,7 @@ async def create_prompt(
     
     logger.info(f"用户 {user.username} 创建了 Prompt: {prompt_data.name} v{new_version}")
     
-    return RedirectResponse(url="/prompts", status_code=303)
+    return {"status": "success", "version": new_version, "name": prompt_data.name}
 
 
 @router.post("/prompts/{prompt_id}/activate")

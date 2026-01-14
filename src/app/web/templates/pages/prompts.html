@@ -142,8 +142,8 @@
         <!-- Modal Panel -->
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
         <div
-            class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-            <form id="editForm" action="/api/prompts" method="POST">
+            class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full max-h-[90vh] overflow-y-auto">
+            <form id="editForm" onsubmit="submitPrompt(event)">
                 <input type="hidden" name="name" id="editName">
 
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
@@ -153,12 +153,12 @@
                             <div class="mt-4 space-y-4">
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">系统提示词</label>
-                                    <textarea name="system_prompt" id="editSystemPrompt" rows="6"
+                                    <textarea name="system_prompt" id="editSystemPrompt" rows="16"
                                         class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-slate-300 rounded-md font-mono"></textarea>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-1">用户提示词</label>
-                                    <textarea name="user_template" id="editUserTemplate" rows="6"
+                                    <textarea name="user_template" id="editUserTemplate" rows="8"
                                         class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-slate-300 rounded-md font-mono"></textarea>
                                 </div>
                                 <div>
@@ -214,6 +214,50 @@
         navigator.clipboard.writeText(text).then(() => {
             alert('已复制到剪贴板');
         });
+    }
+
+    async function submitPrompt(e) {
+        e.preventDefault();
+
+        const name = document.getElementById('editName').value;
+        const systemPrompt = document.getElementById('editSystemPrompt').value;
+        const userTemplate = document.getElementById('editUserTemplate').value;
+        const threshold = document.getElementById('editThreshold').value;
+
+        const submitBtn = document.querySelector('#editForm button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = '保存中...';
+        submitBtn.disabled = true;
+
+        try {
+            const response = await fetch('/api/prompts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: name,
+                    system_prompt: systemPrompt,
+                    user_template: userTemplate,
+                    threshold: threshold ? parseInt(threshold) : null
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert('✅ 保存成功！新版本已创建。');
+                closeModal();
+                window.location.reload();
+            } else {
+                alert('❌ 保存失败: ' + (data.detail || '未知错误'));
+            }
+        } catch (error) {
+            alert('❌ 保存失败: ' + error.message);
+        } finally {
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+        }
     }
 </script>
 {% endblock %}
