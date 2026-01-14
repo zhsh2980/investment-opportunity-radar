@@ -201,12 +201,14 @@
     }
 }
 
-.report-panel {
-    position: sticky;
-    top: 5rem;
-    /* Space for navbar */
-    max-height: calc(100vh - 6rem);
-    overflow-y: auto;
+@media (min-width: 1024px) {
+    .report-panel {
+        position: sticky;
+        top: 5rem;
+        /* Space for navbar */
+        max-height: calc(100vh - 6rem);
+        overflow-y: auto;
+    }
 }
 
 .prose-content {
