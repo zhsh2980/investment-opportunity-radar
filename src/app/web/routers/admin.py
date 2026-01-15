@@ -465,6 +465,37 @@ async def update_analysis_status(
     return {"status": "success", "analysis_id": analysis_id, "action_status": status_data.action_status}
 
 
+@router.delete("/analyses/{analysis_id}")
+async def delete_analysis(
+    analysis_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """删除分析结果并重置文章为未分析状态"""
+    user = get_current_user(request, db)
+    
+    analysis = db.query(AnalysisResult).filter(AnalysisResult.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="分析记录不存在")
+    
+    # 获取关联的文章
+    content_item = analysis.content_item
+    
+    # 删除分析结果（Opportunity 会通过 cascade 自动删除）
+    db.delete(analysis)
+    
+    # 重置文章状态
+    content_item.analyzed_status = 0  # 未分析
+    content_item.analyzed_at = None
+    
+    db.commit()
+    
+    logger.info(f"用户 {user.username} 删除了分析记录 {analysis_id}，文章 {content_item.id} 已重置为未分析")
+    
+    return {"status": "success", "message": "已删除分析记录，文章可重新分析"}
+
+
+
 
 
 # ===== 辅助函数 =====
