@@ -68,11 +68,17 @@ def has_content(item: ContentItem) -> bool:
     Returns:
         True 如果有正文内容，否则 False
     """
-    # 检查 raw_text 或 raw_html 是否有实际内容
+    # 优先检查 raw_text（已转换的纯文本）
     if item.raw_text and len(item.raw_text.strip()) > 50:  # 至少 50 字符
         return True
-    if item.raw_html and len(item.raw_html.strip()) > 100:  # HTML 至少 100 字符
-        return True
+    
+    # 如果 raw_text 为空或不足，尝试从 raw_html 重新转换后检查
+    # 这样可以避免空模板 HTML（只有 CSS 样式，无实际内容）被误判为有内容
+    if item.raw_html:
+        converted_text = html_to_text(item.raw_html)
+        if len(converted_text.strip()) > 50:
+            return True
+    
     return False
 
 
