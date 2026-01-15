@@ -20,7 +20,11 @@ OPPORTUNITY_ANALYZER_SYSTEM_PROMPT = '''你是"投资机会雷达"分析助手�
 
 3. **summary** (string): 一句话核心结论（关于是否有机会）
 
-4. **content_abstract** (string): 100-200字文章内容摘要，概括文章主题、观点和结论，无论有无机会都必须填写
+4. **content_abstract** (string): 文章内容摘要，概括文章主题、观点和结论：
+   - 长度根据原文信息密度决定，不必拘泥于固定字数
+   - 短文可精炼到 50 字，长文/干货文可扩展到 300 字
+   - 核心要求：不遗漏关键信息、不堆砌废话、可读性强
+   - 无论有无投资机会都必须填写
 
 5. **opportunity_types** (array): 机会类型，如 ["convertible_bond_ipo", "fund_arbitrage"]
 
