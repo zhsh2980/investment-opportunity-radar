@@ -120,3 +120,21 @@ ports:
   - "127.0.0.1:9000:8000"
 ```
 **症状**: 访问任何页面都返回 502 Bad Gateway
+
+### 7. Docker Compose 环境变量与运行目录
+项目的 `docker-compose.yml` 位于 `app/` 子目录中，但 `.env` 文件通常位于父目录（为了安全性或统一管理）。
+直接在 `app/` 目录下运行 `docker compose up` 默认只会读取当前目录的 `.env`。
+
+```bash
+# ❌ 错误：在 app 目录下直接运行，读不到父目录的 .env
+cd /srv/opportunity-insight/app
+docker compose up -d
+
+# ✅ 正确方法 A：指定 env 文件路径（推荐，deploy.sh 采用的方式）
+docker compose --env-file ../.env up -d
+
+# ✅ 正确方法 B：确保 app 目录下也有 .env 文件（本次修复采用的方式）
+cp ../.env .
+docker compose up -d
+```
+**严重后果**：如果漏了 `.env`，`docker-compose.yml` 中的变量（如 `DEEPSEEK_API_KEY`, `WERSS_BASE_URL`）会为空或回退到默认值（如 `host.docker.internal`），导致服务虽然启动但连接全挂。

@@ -158,10 +158,8 @@ async def analysis_detail(
     analysis_id: int,
     db: Session = Depends(get_db)
 ):
-    """分析详情页"""
-    user = get_current_user(request, db)
-    if not user:
-        return RedirectResponse(url=f"/login?next=/analysis/{analysis_id}", status_code=303)
+    """分析详情页 - 支持访客模式（钉钉链接可直接访问）"""
+    user = get_current_user(request, db)  # 不强制登录，user 可能为 None
     
     analysis = db.query(AnalysisResult).filter(AnalysisResult.id == analysis_id).first()
     if not analysis:
@@ -201,10 +199,8 @@ async def daily_report(
     report_date: str,
     db: Session = Depends(get_db)
 ):
-    """当日日报页"""
-    user = get_current_user(request, db)
-    if not user:
-        return RedirectResponse(url=f"/login?next=/daily/{report_date}", status_code=303)
+    """当日日报页 - 支持访客模式（钉钉链接可直接访问）"""
+    user = get_current_user(request, db)  # 不强制登录，user 可能为 None
     
     try:
         parsed_date = datetime.strptime(report_date, "%Y-%m-%d").date()

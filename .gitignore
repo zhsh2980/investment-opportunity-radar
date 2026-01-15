@@ -2,6 +2,9 @@
 docs/key/
 scripts/deploy.sh
 
+# claude 相关的
+.claude
+
 # 系统文件
 .DS_Store
 *.swp
