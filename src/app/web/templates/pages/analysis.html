@@ -45,41 +45,41 @@
                     {{ t }}
                 </span>
                 {% endfor %}
-                {% endif %}
-
-                <!-- Action Status (仅登录用户可见) -->
-                {% if user %}
-                <div class="mt-6 pt-6 border-t border-slate-100">
-                    <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">执行状态</label>
-                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2" id="statusButtons">
-                        <button
-                            class="px-3 py-2 rounded-lg text-sm font-medium border transition-colors
-                        {% if analysis.action_status == 'pending' or not analysis.action_status %}bg-slate-800 text-white border-slate-800 shadow-sm{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}"
-                            onclick="updateStatus('pending', this)">
-                            ⏳ 待处理
-                        </button>
-                        <button
-                            class="px-3 py-2 rounded-lg text-sm font-medium border transition-colors
-                        {% if analysis.action_status == 'executed' %}bg-green-600 text-white border-green-600 shadow-sm{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}"
-                            onclick="updateStatus('executed', this)">
-                            ✅ 已执行
-                        </button>
-                        <button
-                            class="px-3 py-2 rounded-lg text-sm font-medium border transition-colors
-                        {% if analysis.action_status == 'skipped' %}bg-slate-600 text-white border-slate-600 shadow-sm{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}"
-                            onclick="updateStatus('skipped', this)">
-                            ❌ 不执行
-                        </button>
-                        <button
-                            class="px-3 py-2 rounded-lg text-sm font-medium border transition-colors
-                        {% if analysis.action_status == 'watching' %}bg-amber-500 text-white border-amber-500 shadow-sm{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}"
-                            onclick="updateStatus('watching', this)">
-                            👀 观望
-                        </button>
-                    </div>
-                </div>
-                {% endif %}
             </div>
+            {% endif %}
+
+            <!-- Action Status (仅登录用户可见) -->
+            {% if user %}
+            <div class="mt-6 pt-6 border-t border-slate-100">
+                <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">执行状态</label>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-2" id="statusButtons">
+                    <button
+                        class="px-3 py-2 rounded-lg text-sm font-medium border transition-colors
+                        {% if analysis.action_status == 'pending' or not analysis.action_status %}bg-slate-800 text-white border-slate-800 shadow-sm{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}"
+                        onclick="updateStatus('pending', this)">
+                        ⏳ 待处理
+                    </button>
+                    <button
+                        class="px-3 py-2 rounded-lg text-sm font-medium border transition-colors
+                        {% if analysis.action_status == 'executed' %}bg-green-600 text-white border-green-600 shadow-sm{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}"
+                        onclick="updateStatus('executed', this)">
+                        ✅ 已执行
+                    </button>
+                    <button
+                        class="px-3 py-2 rounded-lg text-sm font-medium border transition-colors
+                        {% if analysis.action_status == 'skipped' %}bg-slate-600 text-white border-slate-600 shadow-sm{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}"
+                        onclick="updateStatus('skipped', this)">
+                        ❌ 不执行
+                    </button>
+                    <button
+                        class="px-3 py-2 rounded-lg text-sm font-medium border transition-colors
+                        {% if analysis.action_status == 'watching' %}bg-amber-500 text-white border-amber-500 shadow-sm{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}"
+                        onclick="updateStatus('watching', this)">
+                        👀 观望
+                    </button>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Executive Summary -->
             <div
