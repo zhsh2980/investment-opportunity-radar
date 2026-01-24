@@ -46,9 +46,11 @@
             <!-- 空闲状态 -->
             <div id="idle-state">
                 <dt class="text-sm font-medium text-slate-500 uppercase tracking-wider">待分析文章</dt>
-                <dd id="pending-count" class="mt-2 text-3xl font-bold text-slate-900 leading-none">--</dd>
+                <dd id="pending-count" class="mt-2 text-3xl font-bold text-slate-900 leading-none">
+                    <span class="text-slate-400 text-xl">检查中...</span>
+                </dd>
                 <div class="mt-4">
-                    <div class="text-sm text-slate-500">今日总计获取</div>
+                    <div id="pending-detail" class="text-sm text-slate-500">正在从 WeRSS 获取最新数据</div>
                 </div>
             </div>
 
@@ -376,9 +378,45 @@
         }
     }
 
+    // ===== 实时获取待分析文章数量 =====
+    async function fetchPendingArticlesCount() {
+        const pendingCount = document.getElementById('pending-count');
+        const pendingDetail = document.getElementById('pending-detail');
+
+        try {
+            const response = await fetch('/api/pending-articles-count');
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                pendingCount.innerHTML = data.total_pending;
+
+                // 显示详细信息
+                if (data.pending_sync > 0 && data.pending_analyze > 0) {
+                    pendingDetail.textContent = `${data.pending_sync} 篇待同步 + ${data.pending_analyze} 篇待分析`;
+                } else if (data.pending_sync > 0) {
+                    pendingDetail.textContent = `${data.pending_sync} 篇新文章待同步`;
+                } else if (data.pending_analyze > 0) {
+                    pendingDetail.textContent = `${data.pending_analyze} 篇已同步待分析`;
+                } else {
+                    pendingDetail.textContent = `所有文章已分析完成`;
+                }
+            } else {
+                pendingCount.innerHTML = '<span class="text-amber-500">?</span>';
+                pendingDetail.textContent = `获取失败: ${data.error || '未知错误'}`;
+            }
+        } catch (error) {
+            console.error('获取待分析数量失败:', error);
+            pendingCount.innerHTML = '<span class="text-amber-500">?</span>';
+            pendingDetail.textContent = '网络请求失败';
+        }
+    }
+
     // 页面加载时检查是否有正在进行的分析
     document.addEventListener('DOMContentLoaded', async () => {
-        // 检查分析进度
+        // 1. 先获取实时待分析文章数量
+        fetchPendingArticlesCount();
+
+        // 2. 检查分析进度（如果正在分析，会覆盖上面的显示）
         const data = await fetchProgress();
         if (data) {
             updateProgressUI(data);
@@ -399,10 +437,10 @@
             }
         }
 
-        // 检查系统状态
+        // 3. 检查系统状态
         checkSystemStatus();
 
-        // 检查健康按钮状态
+        // 4. 检查健康按钮状态
         checkHealthButton();
     });
 

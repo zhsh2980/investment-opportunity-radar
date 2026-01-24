@@ -630,6 +630,79 @@ async def get_analysis_progress(
     }
 
 
+@router.get("/pending-articles-count")
+async def get_pending_articles_count(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    实时从 WeRSS 获取待分析文章数量
+    
+    逻辑：
+    1. 调用 WeRSS API 获取时间窗口内的文章列表
+    2. 对比本地 content_item 表，计算哪些文章尚未同步
+    3. 加上本地已同步但 analyzed_status = 0 的文章
+    4. 返回总数
+    """
+    user = get_current_user(request, db)
+    
+    from ...clients.werss import get_werss_client
+    from ...domain.models import ContentItem, Settings
+    from datetime import timedelta
+    
+    try:
+        # 获取时间窗口配置
+        window_setting = db.query(Settings).filter(Settings.key == "window_days").first()
+        window_days = window_setting.value_json if window_setting else 3
+        
+        now = datetime.now()
+        start_time = now - timedelta(days=window_days)
+        end_time = now
+        
+        # 从 WeRSS 获取文章列表
+        werss = get_werss_client()
+        werss_articles = werss.get_articles_by_time_range(
+            start_time=start_time,
+            end_time=end_time,
+            has_content=False,
+        )
+        
+        # 获取 WeRSS 返回的所有文章 ID
+        werss_ids = set(str(article.get("id", "")) for article in werss_articles if article.get("id"))
+        
+        # 查询本地已存在的文章 ID
+        local_items = db.query(ContentItem.external_id, ContentItem.analyzed_status).filter(
+            ContentItem.external_id.in_(werss_ids)
+        ).all() if werss_ids else []
+        
+        local_ids = set(item.external_id for item in local_items)
+        
+        # 计算待同步数量（WeRSS 有但本地没有）
+        pending_sync = len(werss_ids - local_ids)
+        
+        # 计算本地待分析数量（已同步但 analyzed_status = 0）
+        pending_analyze = sum(1 for item in local_items if item.analyzed_status == 0)
+        
+        # 总待分析数 = 待同步 + 本地待分析
+        total_pending = pending_sync + pending_analyze
+        
+        return {
+            "status": "success",
+            "total_pending": total_pending,
+            "pending_sync": pending_sync,      # 待同步（新文章）
+            "pending_analyze": pending_analyze, # 待分析（已同步）
+            "werss_total": len(werss_ids),      # WeRSS 总文章数
+        }
+        
+    except Exception as e:
+        logger.error(f"获取待分析文章数量失败: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+            "total_pending": None,
+        }
+
+
 # ===== 系统状态检测 API =====
 @router.get("/system-status")
 async def get_system_status(request: Request, db: Session = Depends(get_db)):
