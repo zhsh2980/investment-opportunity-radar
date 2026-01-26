@@ -283,7 +283,8 @@
             // 显示空闲状态
             idleState.style.display = 'block';
             analyzingState.style.display = 'none';
-            pendingCount.textContent = data.total_pending || '--';
+            // 注意：不再在这里更新 pending-count，因为那个值由 fetchPendingArticlesCount 实时从 WeRSS 获取
+            // pendingCount.textContent = data.total_pending || '--';  // 已移除
         }
     }
 
