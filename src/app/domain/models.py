@@ -174,6 +174,28 @@ class Opportunity(Base):
     analysis_result: Mapped["AnalysisResult"] = relationship(back_populates="opportunities")
 
 
+class OpportunityTrack(Base):
+    """机会跟踪流水（执行/观望/跳过 + 复盘收益记录）"""
+    __tablename__ = "opportunity_track"
+    __table_args__ = (
+        Index("idx_track_analysis", "analysis_id"),
+        Index("idx_track_action_created", "action", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    analysis_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("analysis_result.id", ondelete="CASCADE"), nullable=False)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)  # executed / watching / skipped
+    note: Mapped[Optional[str]] = mapped_column(Text)  # 操作记录/复盘笔记
+    amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(16, 2))  # 投入金额
+    pnl: Mapped[Optional[Decimal]] = mapped_column(Numeric(16, 2))  # 收益（复盘时填写）
+    closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))  # 平仓/结束时间
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # 关联
+    analysis_result: Mapped["AnalysisResult"] = relationship()
+
+
 class DailyReport(Base):
     """当日日报（22:00 必推）"""
     __tablename__ = "daily_report"

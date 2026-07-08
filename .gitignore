@@ -5,6 +5,9 @@ scripts/deploy.sh
 # claude 相关的
 .claude
 
+# 本地预览产物
+preview/
+
 # 系统文件
 .DS_Store
 *.swp

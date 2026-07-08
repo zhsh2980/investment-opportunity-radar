@@ -65,6 +65,7 @@ class SettingsUpdate(BaseModel):
     remember_me_days: Optional[int] = None
     window_days: Optional[int] = None
     schedule_slots: Optional[List[str]] = None
+    urgent_hours: Optional[int] = None
 
 
 @router.post("/settings")

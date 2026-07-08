@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}跟踪台 - 投资机会雷达{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1 class="page-title">跟踪台</h1>
+        <p class="page-sub">观望、执行与复盘,让每个机会有始有终</p>
+    </div>
+</div>
+
+<!-- 月度复盘汇总 -->
+<div class="review-summary">
+    <div class="ds-card ds-stat">
+        <div>
+            <div class="ds-stat-label">本月已执行</div>
+            <div class="ds-stat-value">{{ month_executed }}</div>
+            <div class="ds-stat-hint">{{ month_label }}</div>
+        </div>
+    </div>
+    <div class="ds-card ds-stat">
+        <div>
+            <div class="ds-stat-label">本月累计收益</div>
+            <div class="ds-stat-value" style="color: {% if month_pnl >= 0 %}var(--success){% else %}var(--error){% endif %}">
+                {{ '%+.0f'|format(month_pnl) }} 元
+            </div>
+            <div class="ds-stat-hint">已复盘 {{ month_reviewed }} 笔</div>
+        </div>
+    </div>
+    <div class="ds-card ds-stat">
+        <div>
+            <div class="ds-stat-label">复盘命中率</div>
+            <div class="ds-stat-value">{{ hit_rate }}%</div>
+            <div class="ds-stat-hint">收益为正的比例</div>
+        </div>
+    </div>
+    <div class="ds-card ds-stat">
+        <div>
+            <div class="ds-stat-label">高分段有效率</div>
+            <div class="ds-stat-value">{{ high_score_rate }}%</div>
+            <div class="ds-stat-hint">80 分以上机会的命中率</div>
+        </div>
+    </div>
+</div>
+
+<!-- 三列看板 -->
+<div class="kanban">
+    <!-- 观望中 -->
+    <div class="kanban-col">
+        <div class="kanban-col-head">
+            <span class="dot" style="background: var(--warning)"></span>
+            观望中 · {{ watching|length }}
+        </div>
+        {% for t in watching %}
+        <div class="ds-card track-card">
+            <div class="t-title"><a href="/analysis/{{ t.analysis_id }}">{{ t.headline }}</a></div>
+            <div class="t-meta">{{ t.mp_name }} · 评分 {{ t.score }} · {{ t.created_label }}</div>
+            <div style="display:flex; gap:var(--space-2); margin-top:var(--space-3)">
+                <button class="ds-btn ds-btn-primary ds-btn-sm" onclick="oppActionFromTrack({{ t.analysis_id }}, 'executed')">转执行</button>
+                <button class="ds-btn ds-btn-ghost ds-btn-sm" onclick="oppActionFromTrack({{ t.analysis_id }}, 'skipped')">放弃</button>
+            </div>
+        </div>
+        {% else %}
+        <div class="ds-card empty-state" style="padding: var(--space-8)"><p>暂无观望中的机会</p></div>
+        {% endfor %}
+    </div>
+
+    <!-- 已执行 · 待复盘 -->
+    <div class="kanban-col">
+        <div class="kanban-col-head">
+            <span class="dot" style="background: var(--primary-500)"></span>
+            已执行 · 待复盘 · {{ executing|length }}
+        </div>
+        {% for t in executing %}
+        <div class="ds-card track-card">
+            <div class="t-title"><a href="/analysis/{{ t.analysis_id }}">{{ t.headline }}</a></div>
+            <div class="t-meta">{{ t.mp_name }} · 评分 {{ t.score }} · {{ t.created_label }} 执行</div>
+            {% if t.amount %}<div class="t-meta">投入 {{ t.amount }} 元</div>{% endif %}
+            <button class="ds-btn ds-btn-default ds-btn-sm" style="margin-top:var(--space-3)" onclick="toggleTrackForm(this)">记录复盘</button>
+            <div class="track-form">
+                <div class="row">
+                    <input class="ds-input" name="amount" type="number" placeholder="投入金额" value="{{ t.amount or '' }}">
+                    <input class="ds-input" name="pnl" type="number" placeholder="收益(可负)">
+                </div>
+                <textarea class="ds-textarea" name="note" rows="2" placeholder="复盘笔记(选填)">{{ t.note or '' }}</textarea>
+                <label style="display:flex; align-items:center; gap:var(--space-2); font-size:var(--text-sm); color:var(--text-2); margin:var(--space-2) 0">
+                    <input type="checkbox" name="close" checked> 标记为已结束(进入待复盘归档)
+                </label>
+                <button class="ds-btn ds-btn-primary ds-btn-sm ds-btn-block" onclick="saveTrack(this, {{ t.track_id }})">保存</button>
+            </div>
+        </div>
+        {% else %}
+        <div class="ds-card empty-state" style="padding: var(--space-8)"><p>暂无待复盘的执行记录</p></div>
+        {% endfor %}
+    </div>
+
+    <!-- 已复盘 -->
+    <div class="kanban-col">
+        <div class="kanban-col-head">
+            <span class="dot" style="background: var(--success)"></span>
+            已复盘 · {{ reviewed|length }}
+        </div>
+        {% for t in reviewed %}
+        <div class="ds-card track-card">
+            <div class="t-title"><a href="/analysis/{{ t.analysis_id }}">{{ t.headline }}</a></div>
+            <div class="t-meta">{{ t.mp_name }} · 评分 {{ t.score }} · {{ t.closed_label }} 结束</div>
+            <div class="t-pnl {% if t.pnl >= 0 %}pos{% else %}neg{% endif %}">{{ '%+.0f'|format(t.pnl) }} 元</div>
+            {% if t.note %}<div class="t-meta" style="margin-top:var(--space-2)">{{ t.note }}</div>{% endif %}
+        </div>
+        {% else %}
+        <div class="ds-card empty-state" style="padding: var(--space-8)"><p>还没有复盘记录</p></div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+async function oppActionFromTrack(analysisId, action) {
+    try {
+        await apiPost(`/api/workbench/${analysisId}/action`, { action });
+        toast('已更新');
+        location.reload();
+    } catch (e) { toast(e.message); }
+}
+</script>
+{% endblock %}

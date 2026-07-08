@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}系统设置 - 投资机会雷达{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1 class="page-title">系统设置</h1>
+        <p class="page-sub">数据源健康、批次运行、Prompt 与阈值配置</p>
+    </div>
+    <button class="ds-btn ds-btn-default" onclick="runSlotNow()">立即运行一次批次</button>
+</div>
+
+<div class="sys-grid">
+    <!-- 数据源健康 -->
+    <div class="ds-card">
+        <div class="sys-section-title">数据源健康</div>
+        <div class="sys-body">
+            {% for s in sources %}
+            <div class="sys-row">
+                <span class="k">
+                    <span class="health-dot {{ s.health }}"></span>{{ s.name }}
+                </span>
+                <span class="v">
+                    最新文章 {{ s.latest_label }}<br>
+                    <span style="color:var(--text-3); font-weight:400">近 7 天 {{ s.week_count }} 篇</span>
+                </span>
+            </div>
+            {% else %}
+            <p style="color:var(--text-3)">还没有文章数据</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 今日批次 -->
+    <div class="ds-card">
+        <div class="sys-section-title">今日批次运行</div>
+        <div class="sys-body">
+            {% for slot, st in slots_status.items() %}
+            <div class="sys-row">
+                <span class="k">{{ slot }}</span>
+                <span class="v">
+                    {% if st.status == 'success' %}<span class="ds-tag ds-tag-success">成功</span>
+                    {% elif st.status == 'running' %}<span class="ds-tag">运行中</span>
+                    {% elif st.status == 'failed' %}<span class="ds-tag ds-tag-error">失败</span>
+                    {% else %}<span class="ds-tag ds-tag-neutral">未运行</span>{% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 阈值设置 -->
+    <div class="ds-card">
+        <div class="sys-section-title">阈值与调度</div>
+        <div class="sys-body">
+            <form onsubmit="return false">
+                <div style="margin-bottom:var(--space-4)">
+                    <label class="ds-label">推送分数阈值 (0-100)</label>
+                    <input class="ds-input" type="number" min="0" max="100" data-key="push_score_threshold" value="{{ settings.push_score_threshold }}">
+                </div>
+                <div style="margin-bottom:var(--space-4)">
+                    <label class="ds-label">拉取窗口天数</label>
+                    <input class="ds-input" type="number" min="1" max="14" data-key="window_days" value="{{ settings.window_days }}">
+                </div>
+                <div style="margin-bottom:var(--space-4)">
+                    <label class="ds-label">批次时刻 (JSON 数组)</label>
+                    <input class="ds-input" data-key="schedule_slots" data-json="1" value='{{ settings.schedule_slots | tojson }}'>
+                </div>
+                <div style="margin-bottom:var(--space-4)">
+                    <label class="ds-label">临期阈值小时数</label>
+                    <input class="ds-input" type="number" min="1" max="168" data-key="urgent_hours" value="{{ settings.urgent_hours }}">
+                </div>
+                <button class="ds-btn ds-btn-primary" onclick="saveSettings(this)">保存设置</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Prompt 版本 -->
+    <div class="ds-card">
+        <div class="sys-section-title">Prompt 版本</div>
+        <div class="sys-body" style="padding:0">
+            <table class="ds-table">
+                <thead>
+                    <tr><th>名称</th><th>版本</th><th>阈值</th><th>状态</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for p in prompts %}
+                    <tr>
+                        <td>{{ p.name }}</td>
+                        <td>v{{ p.version }}</td>
+                        <td>{{ p.threshold }}</td>
+                        <td>
+                            {% if p.is_active %}<span class="ds-tag ds-tag-success">生效中</span>
+                            {% else %}<span class="ds-tag ds-tag-neutral">停用</span>{% endif %}
+                        </td>
+                        <td style="text-align:right">
+                            {% if not p.is_active %}
+                            <button class="ds-btn ds-btn-default ds-btn-sm" onclick="activatePrompt({{ p.id }})">启用</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" style="color:var(--text-3)">暂无 Prompt 版本</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

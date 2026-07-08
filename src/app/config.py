@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"  # 允许 .env 中存在未声明的键(如 docker-compose 用的 POSTGRES_*)
 
 
 @lru_cache()

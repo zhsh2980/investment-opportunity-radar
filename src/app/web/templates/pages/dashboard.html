@@ -1,472 +1,157 @@
 {% extends "base.html" %}
 
-{% block title %}控制台 - 投资机会雷达{% endblock %}
+{% block title %}今日工作台 - 投资机会雷达{% endblock %}
 
 {% block content %}
-<div class="space-y-8">
-
-    <!-- Welcome Section -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-900">早安, {{ username }}</h1>
-            <p class="text-slate-500 mt-1">这是今天的投资机会分析概览。</p>
-        </div>
-        <div class="flex flex-col md:flex-row gap-3">
-            <a href="/health" id="health-check-btn"
-                class="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm w-full md:w-auto gap-2">
-                健康检查
-                <svg class="w-4 h-4 text-slate-300 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <circle cx="12" cy="12" r="10" stroke-width="4" class="opacity-25"></circle>
-                    <path class="opacity-75" fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                    </path>
-                </svg>
-            </a>
-            <button onclick="runAnalysisNow(this)"
-                class="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm w-full md:w-auto">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                立即分析
-            </button>
-            <a href="/daily/{{ today_date }}"
-                class="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-indigo-700 transition-colors shadow-sm w-full md:w-auto">
-                查看今日日报
-            </a>
-        </div>
+<div class="page-head">
+    <div>
+        <h1 class="page-title">今日工作台</h1>
+        <p class="page-sub">
+            {{ today_label }} ·
+            <span id="page-sub-dynamic">待处理 {{ pending_count }} 个机会,其中 {{ urgent_count }} 个临期需在 {{ urgent_hours }} 小时内决策</span>
+        </p>
     </div>
-
-    <!-- Status Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Card 1: Analysis Progress -->
-        <div id="analysis-progress-card"
-            class="bg-white rounded-lg border border-slate-200 shadow-sm p-6 flex flex-col justify-between h-full hover:shadow-md transition-shadow">
-
-            <!-- 空闲状态 -->
-            <div id="idle-state">
-                <dt class="text-sm font-medium text-slate-500 uppercase tracking-wider">待分析文章</dt>
-                <dd id="pending-count" class="mt-2 text-3xl font-bold text-slate-900 leading-none">
-                    <span class="text-slate-400 text-xl">检查中...</span>
-                </dd>
-                <div class="mt-4">
-                    <div id="pending-detail" class="text-sm text-slate-500">正在从 WeRSS 获取最新数据</div>
-                </div>
-            </div>
-
-            <!-- 分析中状态 -->
-            <div id="analyzing-state" style="display:none;">
-                <dt class="text-sm font-medium text-slate-500 uppercase tracking-wider mb-3">📊 分析进度</dt>
-
-                <!-- 进度条 -->
-                <div class="w-full bg-slate-100 rounded-full h-2 mb-3">
-                    <div id="progress-fill" class="bg-indigo-600 h-2 rounded-full transition-all duration-500"
-                        style="width: 0%"></div>
-                </div>
-
-                <!-- 进度信息 -->
-                <div class="space-y-2">
-                    <div class="text-sm">
-                        <span class="text-slate-600">正在分析:</span>
-                        <span id="current-title" class="text-slate-900 font-medium">--</span>
-                    </div>
-                    <div class="text-sm text-slate-600">
-                        共 <span id="total-count">0</span> 篇 | 已分析 <span id="analyzed-count">0</span> 篇 | 剩余 <span
-                            id="remaining-count">0</span> 篇
-                    </div>
-                    <div class="text-sm text-slate-500">
-                        预计剩余: <span id="estimated-time">--</span> 分钟
-                    </div>
-                </div>
-            </div>
-        </div>
-
-
-        <!-- Card 2: Opportunities -->
-        <div
-            class="bg-white rounded-lg border border-slate-200 shadow-sm p-6 flex flex-col justify-between h-full hover:shadow-md transition-shadow">
-            <div>
-                <dt class="text-sm font-medium text-slate-500 uppercase tracking-wider">今日机会</dt>
-                <dd class="mt-2 text-3xl font-bold text-indigo-600 leading-none">--</dd>
-            </div>
-            <div class="mt-4">
-                <span
-                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
-                    高潜力
-                </span>
-            </div>
-        </div>
-
-        <!-- Card 3: Push Status -->
-        <div
-            class="bg-white rounded-lg border border-slate-200 shadow-sm p-6 flex flex-col justify-between h-full hover:shadow-md transition-shadow">
-            <div>
-                <dt class="text-sm font-medium text-slate-500 uppercase tracking-wider">推送次数</dt>
-                <dd class="mt-2 text-3xl font-bold text-slate-900 leading-none">--</dd>
-            </div>
-            <div class="mt-4">
-                <div class="flex gap-1 h-1.5 mt-2">
-                    <!-- 5 slots visual representation -->
-                    <div class="flex-1 bg-slate-100 rounded-lr" title="07:00"></div>
-                    <div class="flex-1 bg-slate-100 rounded-lr" title="12:00"></div>
-                    <div class="flex-1 bg-slate-100 rounded-lr" title="14:00"></div>
-                    <div class="flex-1 bg-slate-100 rounded-lr" title="18:00"></div>
-                    <div class="flex-1 bg-slate-100 rounded-lr" title="22:00"></div>
-                </div>
-                <div class="mt-2 text-xs text-slate-400 flex justify-between font-mono">
-                    <span>07:00</span>
-                    <span>22:00</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Usage/Info Section -->
-    <div class="bg-white rounded-lg border border-slate-200 shadow-sm divide-y divide-slate-100">
-        <div class="p-6">
-            <h3 class="text-base font-semibold text-slate-900">系统状态</h3>
-        </div>
-        <div class="p-6">
-            <ul class="space-y-4">
-                <li class="flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <div class="p-3 bg-slate-50 rounded-lg text-slate-500 ring-1 ring-slate-900/5">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z">
-                                </path>
-                            </svg>
-                        </div>
-                        <div>
-                            <p class="font-medium text-slate-900">WeRSS 连接</p>
-                            <p id="werss-message" class="text-sm text-slate-500">正在检测...</p>
-                        </div>
-                    </div>
-                    <span id="werss-status"
-                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-500/10">
-                        检测中
-                    </span>
-                </li>
-                <li class="flex items-center justify-between pt-4 border-t border-slate-50">
-                    <div class="flex items-center gap-4">
-                        <div class="p-3 bg-slate-50 rounded-lg text-slate-500 ring-1 ring-slate-900/5">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                    d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                            </svg>
-                        </div>
-                        <div>
-                            <p class="font-medium text-slate-900">DeepSeek API</p>
-                            <p id="deepseek-message" class="text-sm text-slate-500">正在检测...</p>
-                        </div>
-                    </div>
-                    <span id="deepseek-status"
-                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-500/10">
-                        检测中
-                    </span>
-                </li>
-            </ul>
-        </div>
-    </div>
-
+    <button class="ds-btn ds-btn-default" onclick="runSlotNow()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/></svg>
+        刷新分析
+    </button>
 </div>
-{% endblock %}
 
-{% block extra_scripts %}
-<script>
-    // ===== Toast 通知 =====
-    function showToast(message, isSuccess = true) {
-        // 移除旧的 toast
-        const oldToast = document.getElementById('toast');
-        if (oldToast) oldToast.remove();
+<!-- 统计卡 -->
+<div class="stat-grid">
+    <div class="ds-card ds-stat">
+        <div>
+            <div class="ds-stat-label">今日待处理机会</div>
+            <div class="ds-stat-value" id="stat-pending">{{ pending_count }}</div>
+            <div class="ds-stat-hint">已按临期与分数排序</div>
+        </div>
+        <div class="ds-stat-icon stat-icon-primary">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16v13H4z"/><path d="M4 11h16M9 4v3M15 4v3"/></svg>
+        </div>
+    </div>
+    <div class="ds-card ds-stat is-urgent">
+        <div>
+            <div class="ds-stat-label">临期机会 &lt; {{ urgent_hours }}h</div>
+            <div class="ds-stat-value" id="stat-urgent">{{ urgent_count }}</div>
+            <div class="ds-stat-hint">需尽快决策,勿错过窗口</div>
+        </div>
+        <div class="ds-stat-icon stat-icon-error">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>
+        </div>
+    </div>
+    <div class="ds-card ds-stat">
+        <div>
+            <div class="ds-stat-label">今日已分析文章</div>
+            <div class="ds-stat-value">{{ analyzed_today }}</div>
+            <div class="ds-stat-hint">来自 {{ source_count }} 个订阅公众号</div>
+        </div>
+        <div class="ds-stat-icon stat-icon-success">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7"/></svg>
+        </div>
+    </div>
+</div>
 
-        const toast = document.createElement('div');
-        toast.id = 'toast';
-        toast.className = `fixed top-20 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 transition-opacity duration-300 ${isSuccess ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`;
-        toast.innerHTML = message.replace(/\n/g, '<br>');
-        document.body.appendChild(toast);
+<!-- 筛选条 -->
+<div class="ds-card filter-bar">
+    <span class="filter-label">类型</span>
+    <div class="filter-pills">
+        <button class="filter-pill active" onclick="setTypeFilter(this,'all')">全部</button>
+        <button class="filter-pill" onclick="setTypeFilter(this,'cb')">可转债</button>
+        <button class="filter-pill" onclick="setTypeFilter(this,'arb')">套利</button>
+        <button class="filter-pill" onclick="setTypeFilter(this,'ipo')">新股</button>
+        <button class="filter-pill" onclick="setTypeFilter(this,'cash')">现金管理</button>
+        <button class="filter-pill" onclick="setTypeFilter(this,'other')">其他</button>
+    </div>
+    <span class="filter-label">分数</span>
+    <select class="ds-select" id="score-filter" onchange="setScoreFilter(this)">
+        <option value="all">全部分数</option>
+        <option value="80">80 分以上</option>
+        <option value="60">60 - 79 分</option>
+        <option value="lt60">60 分以下</option>
+    </select>
+    <span class="filter-count" id="filter-count">共 {{ pending_count }} 条机会</span>
+    <button class="filter-reset" onclick="resetFilters()">重置</button>
+</div>
 
-        // 3秒后自动消失
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-    }
+<!-- 机会卡片流 -->
+<div class="opp-list" id="opp-list">
+    {% for c in cards %}
+    <div class="ds-card opp-card"
+         data-type="{{ c.type_key }}" data-score="{{ c.score }}"
+         id="opp-{{ c.analysis_id }}">
+        <div class="opp-score {% if c.score >= 80 %}s-high{% elif c.score >= 60 %}s-mid{% else %}s-low{% endif %}">
+            <div class="num">{{ c.score }}</div>
+            <div class="cap">评分</div>
+        </div>
+        <div class="opp-body">
+            <div class="opp-tags">
+                <span class="ds-tag">{{ c.type_label }}</span>
+                {% if c.deadline %}
+                <span class="countdown" data-deadline="{{ c.deadline }}">…</span>
+                {% else %}
+                <span class="countdown">无明确窗口</span>
+                {% endif %}
+            </div>
+            <div class="opp-title">{{ c.headline }}</div>
+            <div class="opp-source">
+                来源 · {{ c.mp_name }}
+                <a href="/analysis/{{ c.analysis_id }}">《{{ c.title }}》</a>
+            </div>
+            {% if c.steps %}
+            <ol class="opp-steps">
+                {% for s in c.steps %}<li>{{ s }}</li>{% endfor %}
+            </ol>
+            {% endif %}
+            <button class="opp-expand-btn" onclick="toggleExpand(this)">
+                <span class="lbl">展开完整分析</span>
+                <svg class="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="opp-detail">
+                {% for opp in c.opportunities %}
+                <h4>机会 {{ loop.index }} · {{ opp.title }}</h4>
+                {% if opp.how_to %}
+                <ul>{% for step in opp.how_to %}<li>{{ step }}</li>{% endfor %}</ul>
+                {% endif %}
+                {% if opp.constraints %}
+                <h4>约束条件</h4>
+                <ul>{% for con in opp.constraints %}<li>{{ con }}</li>{% endfor %}</ul>
+                {% endif %}
+                {% if opp.numbers %}
+                <h4>关键数字</h4>
+                <div class="nums">
+                    {% for k, v in opp.numbers.items() %}<span>{{ k }}: {{ v }}</span>{% endfor %}
+                </div>
+                {% endif %}
+                {% endfor %}
+                {% if c.summary %}
+                <h4>AI 摘要</h4>
+                <div class="opp-summary">{{ c.summary }}</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="opp-actions">
+            <button class="ds-btn ds-btn-primary ds-btn-sm ds-btn-block" onclick="oppAction(this, {{ c.analysis_id }}, 'executed')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m4 12 5 5L20 6"/></svg>
+                执行
+            </button>
+            <button class="ds-btn ds-btn-default ds-btn-sm ds-btn-block" onclick="oppAction(this, {{ c.analysis_id }}, 'watching')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                观望
+            </button>
+            <button class="ds-btn ds-btn-ghost ds-btn-sm ds-btn-block" onclick="oppAction(this, {{ c.analysis_id }}, 'skipped')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5v14M19 5l-9 7 9 7z"/></svg>
+                跳过
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
 
-    async function runAnalysisNow(btn) {
-        if (btn.disabled) return;
+<div class="ds-card empty-state" id="opp-empty" {% if cards %}style="display:none"{% endif %}>
+    <div class="icon">🎉</div>
+    <div class="title">当前没有待处理的机会</div>
+    <p>新文章会在每天 5 个批次自动分析,有机会时会出现在这里</p>
+</div>
 
-        const originalText = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = `
-            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            分析中
-        `;
-
-        try {
-            const response = await fetch('/api/run-now', {
-                method: 'POST',
-            });
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                showToast('✅ ' + result.message);
-                startProgressPolling();  // 启动进度轮询
-                // 成功时保持禁用状态，等待分析完成后由轮询逻辑恢复
-            } else {
-                // 失败（如有任务正在执行）
-                showToast('⚠️ ' + result.message, false);
-                // 恢复按钮
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            }
-        } catch (error) {
-            showToast('❌ 请求失败: ' + error.message, false);
-            // 恢复按钮
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-    }
-
-    // ===== 进度轮询逻辑 =====
-    let progressInterval = null;
-
-    async function fetchProgress() {
-        try {
-            const response = await fetch('/api/analysis-progress');
-            const data = await response.json();
-            return data;
-        } catch (error) {
-            console.error('获取进度失败:', error);
-            return null;
-        }
-    }
-
-    function updateProgressUI(data) {
-        const idleState = document.getElementById('idle-state');
-        const analyzingState = document.getElementById('analyzing-state');
-        const pendingCount = document.getElementById('pending-count');
-        const progressFill = document.getElementById('progress-fill');
-        const currentTitle = document.getElementById('current-title');
-        const totalCount = document.getElementById('total-count');
-        const analyzedCount = document.getElementById('analyzed-count');
-        const remainingCount = document.getElementById('remaining-count');
-        const estimatedTime = document.getElementById('estimated-time');
-
-        if (data.is_running && data.total_initial > 0) {
-            // 显示分析中状态
-            idleState.style.display = 'none';
-            analyzingState.style.display = 'block';
-
-            // 更新进度条
-            const percent = data.total_initial > 0
-                ? (data.analyzed_count / data.total_initial) * 100
-                : 0;
-            progressFill.style.width = percent + '%';
-
-            // 更新当前文章
-            if (data.current_article && data.current_article.title) {
-                currentTitle.textContent = data.current_article.title;
-            } else {
-                currentTitle.textContent = '准备中...';
-            }
-
-            // 更新进度数字
-            totalCount.textContent = data.total_initial || 0;
-            analyzedCount.textContent = data.analyzed_count || 0;
-            remainingCount.textContent = data.remaining || 0;
-            estimatedTime.textContent = data.estimated_remaining_minutes || '--';
-        } else {
-            // 显示空闲状态
-            idleState.style.display = 'block';
-            analyzingState.style.display = 'none';
-            // 注意：不再在这里更新 pending-count，因为那个值由 fetchPendingArticlesCount 实时从 WeRSS 获取
-            // pendingCount.textContent = data.total_pending || '--';  // 已移除
-        }
-    }
-
-    async function pollProgress() {
-        const data = await fetchProgress();
-        if (data) {
-            updateProgressUI(data);
-
-            // 如果分析完成，停止轮询
-            if (!data.is_running) {
-                stopProgressPolling();
-            }
-        }
-    }
-
-    function startProgressPolling() {
-        if (progressInterval) return; // 防止重复启动
-
-        // 立即执行一次
-        pollProgress();
-
-        // 每5秒轮询一次
-        progressInterval = setInterval(pollProgress, 5000);
-    }
-
-    function stopProgressPolling() {
-        if (progressInterval) {
-            clearInterval(progressInterval);
-            progressInterval = null;
-        }
-        // 恢复"立即分析"按钮
-        resetAnalysisButton();
-    }
-
-    function resetAnalysisButton() {
-        const btn = document.querySelector('button[onclick*="runAnalysisNow"]');
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = `
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                立即分析
-            `;
-        }
-    }
-
-    // ===== 系统状态检测 =====
-    async function checkSystemStatus() {
-        const werssMessage = document.getElementById('werss-message');
-        const werssStatus = document.getElementById('werss-status');
-        const deepseekMessage = document.getElementById('deepseek-message');
-        const deepseekStatus = document.getElementById('deepseek-status');
-
-        try {
-            const response = await fetch('/api/system-status');
-            const data = await response.json();
-
-            // 更新 WeRSS 状态
-            if (data.werss) {
-                werssMessage.textContent = data.werss.message;
-                if (data.werss.status === 'ok') {
-                    werssStatus.textContent = '正常';
-                    werssStatus.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20';
-                } else {
-                    werssStatus.textContent = '异常';
-                    werssStatus.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20';
-                }
-            }
-
-            // 更新 DeepSeek 状态
-            if (data.deepseek) {
-                deepseekMessage.textContent = data.deepseek.message;
-                if (data.deepseek.status === 'ok') {
-                    deepseekStatus.textContent = '就绪';
-                    deepseekStatus.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20';
-                } else {
-                    deepseekStatus.textContent = '异常';
-                    deepseekStatus.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20';
-                }
-            }
-        } catch (error) {
-            console.error('检查系统状态失败:', error);
-            // 显示检测失败状态
-            werssMessage.textContent = '检测失败';
-            werssStatus.textContent = '未知';
-            werssStatus.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20';
-            deepseekMessage.textContent = '检测失败';
-            deepseekStatus.textContent = '未知';
-            deepseekStatus.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20';
-        }
-    }
-
-    // ===== 实时获取待分析文章数量 =====
-    async function fetchPendingArticlesCount() {
-        const pendingCount = document.getElementById('pending-count');
-        const pendingDetail = document.getElementById('pending-detail');
-
-        try {
-            const response = await fetch('/api/pending-articles-count');
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                pendingCount.innerHTML = data.total_pending;
-
-                // 显示详细信息
-                if (data.pending_sync > 0 && data.pending_analyze > 0) {
-                    pendingDetail.textContent = `${data.pending_sync} 篇待同步 + ${data.pending_analyze} 篇待分析`;
-                } else if (data.pending_sync > 0) {
-                    pendingDetail.textContent = `${data.pending_sync} 篇新文章待同步`;
-                } else if (data.pending_analyze > 0) {
-                    pendingDetail.textContent = `${data.pending_analyze} 篇已同步待分析`;
-                } else {
-                    pendingDetail.textContent = `所有文章已分析完成`;
-                }
-            } else {
-                pendingCount.innerHTML = '<span class="text-amber-500">?</span>';
-                pendingDetail.textContent = `获取失败: ${data.error || '未知错误'}`;
-            }
-        } catch (error) {
-            console.error('获取待分析数量失败:', error);
-            pendingCount.innerHTML = '<span class="text-amber-500">?</span>';
-            pendingDetail.textContent = '网络请求失败';
-        }
-    }
-
-    // 页面加载时检查是否有正在进行的分析
-    document.addEventListener('DOMContentLoaded', async () => {
-        // 1. 先获取实时待分析文章数量
-        fetchPendingArticlesCount();
-
-        // 2. 检查分析进度（如果正在分析，会覆盖上面的显示）
-        const data = await fetchProgress();
-        if (data) {
-            updateProgressUI(data);
-            if (data.is_running) {
-                startProgressPolling();
-                // 禁用按钮并显示分析中状态
-                const btn = document.querySelector('button[onclick*="runAnalysisNow"]');
-                if (btn) {
-                    btn.disabled = true;
-                    btn.innerHTML = `
-                        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        分析中
-                    `;
-                }
-            }
-        }
-
-        // 3. 检查系统状态
-        checkSystemStatus();
-
-        // 4. 检查健康按钮状态
-        checkHealthButton();
-    });
-
-    // ===== 首页按钮健康检查 =====
-    async function checkHealthButton() {
-        const btn = document.getElementById('health-check-btn');
-        const iconContainer = btn.querySelector('svg');
-
-        try {
-            const response = await fetch('/healthz?detailed=true');
-            const data = await response.json();
-
-            if (data.status === 'ok') {
-                // Green check
-                iconContainer.outerHTML = '<svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
-            } else {
-                // Red alert
-                iconContainer.outerHTML = '<svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
-            }
-        } catch (e) {
-            console.error('Health check failed', e);
-            // Gray question mark
-            iconContainer.outerHTML = '<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
-        }
-    }
-
-</script>
+<script>window.URGENT_HOURS = {{ urgent_hours }};</script>
 {% endblock %}

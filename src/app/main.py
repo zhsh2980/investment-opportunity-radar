@@ -132,7 +132,7 @@ async def login_page(request: Request):
         user_id = verify_session_token(token)
         if user_id:
             return RedirectResponse(url="/", status_code=303)
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request, "login.html", {})
 
 
 if __name__ == "__main__":

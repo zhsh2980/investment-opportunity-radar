@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}投资机会雷达{% endblock %}</title>
+    <meta name="description" content="投资机会雷达 - 智能分析公众号文章中的投资机会">
+
+    <!-- Fonts (Using system stack in CSS, but preconnecting for performance if we add webfonts later) -->
+
+    <!-- CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617',
+                        },
+                        indigo: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', "Segoe UI", 'Roboto', "Helvetica Neue", 'Arial', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="/static/app.css?v=3">
+    <link rel="stylesheet" href="/static/pages.css?v=3">
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body class="antialiased text-slate-900 bg-slate-50">
+
+    {% if user %}
+    <!-- Navbar (Premium Sticky Header) -->
+    <nav class="navbar-shell backdrop-blur-md bg-white/80 border-b border-slate-200 sticky top-0 z-50">
+        <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+            <!-- Brand -->
+            <div class="flex items-center gap-3">
+                <a href="/" class="flex items-center gap-2 group">
+                    <span class="text-2xl transition-transform group-hover:scale-105">📡</span>
+                    <span class="font-bold text-lg tracking-tight text-slate-800">机会雷达</span>
+                </a>
+            </div>
+
+            <!-- Desktop Menu -->
+            <div class="hidden md:flex items-center gap-1">
+                <a href="/" class="nav-item {% if request.url.path == '/' %}active{% endif %}">首页</a>
+                <a href="/daily/{{ today or '' }}"
+                    class="nav-item {% if '/daily/' in request.url.path %}active{% endif %}">今日日报</a>
+                <a href="/history" class="nav-item {% if request.url.path == '/history' %}active{% endif %}">历史</a>
+                <a href="/prompts" class="nav-item {% if request.url.path == '/prompts' %}active{% endif %}">Prompts</a>
+                <a href="/settings" class="nav-item {% if request.url.path == '/settings' %}active{% endif %}">设置</a>
+            </div>
+
+            <!-- User Profile & Mobile Toggle -->
+            <div class="flex items-center gap-4">
+                <div class="hidden md:flex items-center gap-3">
+                    <span class="text-sm font-medium text-slate-600">{{ user.username }}</span>
+                    <form action="/api/auth/logout" method="POST">
+                        <button type="submit"
+                            class="text-sm text-slate-500 hover:text-red-600 transition-colors">退出</button>
+                    </form>
+                </div>
+
+                <!-- Mobile Hamburger (Animated) -->
+                <!-- Mobile Hamburger (Animated) -->
+                <button
+                    class="md:hidden text-slate-600 hover:text-slate-900 focus:outline-none transition-transform duration-300 z-[70] relative"
+                    onclick="toggleMobileMenu()" id="mobileMenuBtn">
+                    <!-- Hamburger Icon -->
+                    <svg id="menuIcon" class="w-6 h-6 transition-opacity duration-300" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                    <!-- Close Icon (Hidden by default) -->
+                    <svg id="closeIcon" class="w-6 h-6 hidden transition-opacity duration-300 absolute top-0 left-0"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu Backdrop (OUTSIDE nav to avoid stacking context issues) -->
+    <div id="mobileBackdrop"
+        class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] hidden transition-opacity duration-300 md:hidden"
+        onclick="toggleMobileMenu()"></div>
+
+    <!-- Mobile Menu (Side Drawer - OUTSIDE nav) -->
+    <div id="mobileMenu"
+        class="fixed inset-y-0 right-0 w-[75%] max-w-[300px] bg-white shadow-2xl z-[70] transform translate-x-full transition-transform duration-300 ease-in-out md:hidden border-l border-slate-100">
+        <div class="flex flex-col h-full">
+            <!-- Drawer Header -->
+            <div class="h-16 flex items-center justify-between px-6 border-b border-slate-100 bg-slate-50/50">
+                <span class="font-bold text-lg text-slate-800 tracking-tight">菜单</span>
+                <button onclick="toggleMobileMenu()" class="p-1 rounded-lg hover:bg-slate-100 transition-colors">
+                    <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Menu Items -->
+            <div class="flex flex-col p-6 space-y-4 overflow-y-auto flex-1">
+                <a href="/"
+                    class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <span class="text-xl">🏠</span>
+                    <span class="font-medium text-slate-700">首页</span>
+                </a>
+                <a href="/daily/{{ today or '' }}"
+                    class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <span class="text-xl">📰</span>
+                    <span class="font-medium text-slate-700">今日日报</span>
+                </a>
+                <a href="/history"
+                    class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <span class="text-xl">📜</span>
+                    <span class="font-medium text-slate-700">历史</span>
+                </a>
+                <a href="/prompts"
+                    class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <span class="text-xl">🤖</span>
+                    <span class="font-medium text-slate-700">Prompts</span>
+                </a>
+                <a href="/settings"
+                    class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <span class="text-xl">⚙️</span>
+                    <span class="font-medium text-slate-700">设置</span>
+                </a>
+            </div>
+
+            <!-- Drawer Footer -->
+            <div class="p-6 border-t border-slate-100 bg-slate-50/30">
+                <div class="mb-4 flex items-center gap-3 px-2">
+                    <div
+                        class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                        {{ user.username[0] | upper }}
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium text-slate-900">{{ user.username }}</span>
+                        <span class="text-xs text-slate-500">已登录</span>
+                    </div>
+                </div>
+                <form action="/api/auth/logout" method="POST">
+                    <button type="submit"
+                        class="w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-red-600 hover:bg-red-50 transition-colors font-medium text-sm shadow-sm">
+                        <span>退出登录</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="min-h-[calc(100vh-140px)] py-8">
+        <div class="container mx-auto px-4 max-w-6xl">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-200 bg-slate-50 py-8 mt-auto">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm text-slate-400">© 2026 Investment Opportunity Radar. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="/static/app.js?v=5"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+
+</html>

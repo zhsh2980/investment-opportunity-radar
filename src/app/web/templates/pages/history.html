@@ -1,191 +1,69 @@
 {% extends "base.html" %}
 
-{% block title %}历史记录 - 投资机会雷达{% endblock %}
+{% block title %}历史与搜索 - 投资机会雷达{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-
-    <!-- Page Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-900">历史分析记录</h1>
-            <p class="text-slate-500 mt-1">查看往期所有文章的分析结果与评分</p>
-        </div>
-
-        <div class="flex gap-2">
-            <a href="/api/export/analyses?format=json&start_date={{ start_date }}&end_date={{ end_date }}&min_score={{ min_score }}"
-                target="_blank"
-                class="inline-flex items-center px-3 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50">
-                📄 导出 JSON
-            </a>
-            <a href="/api/export/analyses?format=csv&start_date={{ start_date }}&end_date={{ end_date }}&min_score={{ min_score }}"
-                class="inline-flex items-center px-3 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50">
-                📊 导出 CSV
-            </a>
-        </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-4 md:p-6">
-        <form method="GET" action="/history" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-            <div>
-                <label class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">开始日期</label>
-                <input type="date" name="start_date" value="{{ start_date }}"
-                    class="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-slate-900">
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">结束日期</label>
-                <input type="date" name="end_date" value="{{ end_date }}"
-                    class="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-slate-900">
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">最低评分</label>
-                <input type="number" name="min_score" value="{{ min_score }}" min="0" max="100" step="10"
-                    class="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-slate-900">
-            </div>
-            <div class="md:col-span-2 flex gap-4">
-                <div class="flex-1">
-                    <label class="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">关键词</label>
-                    <input type="text" name="keyword" value="{{ keyword }}" placeholder="标题/公众号"
-                        class="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-slate-900">
-                </div>
-                <button type="submit"
-                    class="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors self-end">
-                    搜索
-                </button>
-            </div>
-        </form>
-    </div>
-
-    <!-- Data Table -->
-    <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        <div class="bg-slate-50 px-6 py-3 border-b border-slate-200">
-            <span class="text-xs font-medium text-slate-500 uppercase">共 {{ analyses|length }} 条结果</span>
-        </div>
-
-        {% if analyses %}
-        <div class="overflow-x-auto w-full">
-            <table class="min-w-full divide-y divide-slate-200">
-                <thead class="bg-slate-50">
-                    <tr>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">日期
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">评分
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">机会
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">标题
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">公众号
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">操作
-                        </th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-slate-200">
-                    {% for analysis in analyses %}
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                            {{ analysis.content_item.published_at.strftime('%m-%d %H:%M') }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            {% if analysis.score >= 80 %}
-                            <span
-                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                {{ analysis.score }}
-                            </span>
-                            {% elif analysis.score >= 60 %}
-                            <span
-                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                {{ analysis.score }}
-                            </span>
-                            {% else %}
-                            <span
-                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
-                                {{ analysis.score }}
-                            </span>
-                            {% endif %}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            {% if analysis.has_opportunity %}
-                            <span class="text-green-600 font-medium text-sm">✓ 是</span>
-                            {% else %}
-                            <span class="text-slate-400 text-sm">--</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="text-sm font-medium text-slate-900 max-w-md truncate"
-                                title="{{ analysis.content_item.title }}">
-                                {{ analysis.content_item.title }}
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                            {{ analysis.content_item.mp_name or '-' }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div class="flex items-center justify-end gap-2">
-                                <a href="/analysis/{{ analysis.id }}"
-                                    class="text-indigo-600 hover:text-indigo-900 group inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-indigo-50 transition-colors">
-                                    查看
-                                    <span class="group-hover:translate-x-1 transition-transform">→</span>
-                                </a>
-                                <button
-                                    onclick="deleteAnalysis({{ analysis.id }}, '{{ analysis.content_item.title[:30] | replace('\'', '\\\'') }}')"
-                                    class="text-slate-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded inline-flex items-center gap-1 transition-colors group"
-                                    title="删除分析记录">
-                                    <svg class="w-4 h-4 group-hover:scale-110 transition-transform" fill="none"
-                                        viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                    <span class="hidden group-hover:inline">删除</span>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="text-center py-12">
-            <svg class="mx-auto h-12 w-12 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h3 class="mt-2 text-sm font-medium text-slate-900">未找到数据</h3>
-            <p class="mt-1 text-sm text-slate-500">请尝试调整筛选条件或日期范围。</p>
-        </div>
-        {% endif %}
+<div class="page-head">
+    <div>
+        <h1 class="page-title">历史与搜索</h1>
+        <p class="page-sub">全部文章与分析结果的时间线,日报作为锚点</p>
     </div>
 </div>
 
-<script>
-    async function deleteAnalysis(id, title) {
-        if (!confirm(`确定要删除「${title}」的分析结果吗？\n\n删除后该文章将重置为未分析状态，可以重新分析。`)) {
-            return;
-        }
+<!-- 筛选 -->
+<form class="ds-card filter-bar" method="get" action="/history">
+    <input class="ds-input" style="max-width:220px" type="text" name="keyword" placeholder="标题 / 公众号关键词" value="{{ keyword }}">
+    <input class="ds-input" style="max-width:150px" type="date" name="start_date" value="{{ start_date }}">
+    <span class="filter-label">至</span>
+    <input class="ds-input" style="max-width:150px" type="date" name="end_date" value="{{ end_date }}">
+    <select class="ds-select" name="min_score">
+        <option value="0" {% if min_score == 0 %}selected{% endif %}>全部分数</option>
+        <option value="60" {% if min_score == 60 %}selected{% endif %}>60 分以上</option>
+        <option value="80" {% if min_score == 80 %}selected{% endif %}>80 分以上</option>
+    </select>
+    <select class="ds-select" name="only_opp">
+        <option value="0" {% if not only_opp %}selected{% endif %}>全部文章</option>
+        <option value="1" {% if only_opp %}selected{% endif %}>仅含机会</option>
+    </select>
+    <button class="ds-btn ds-btn-primary" type="submit">查询</button>
+    <span class="filter-count">共 {{ total }} 条</span>
+</form>
 
-        try {
-            const res = await fetch(`/api/analyses/${id}`, { method: 'DELETE' });
-
-            if (res.ok) {
-                // 删除成功直接刷新，不弹窗干扰用户
-                location.reload();
-            } else {
-                const data = await res.json();
-                alert('删除失败：' + (data.detail || data.message || '未知错误'));
-            }
-        } catch (error) {
-            alert('删除失败：网络错误');
-            console.error(error);
-        }
-    }
-</script>
+<!-- 时间线 -->
+{% if days %}
+<div class="timeline">
+    {% for day in days %}
+    <div class="tl-date-anchor">
+        {{ day.label }}
+        {% if day.report %}
+        · <a href="/daily/{{ day.date }}">查看当日日报</a>
+        {% endif %}
+    </div>
+    {% for a in day.entries %}
+    <div class="tl-item {% if a.has_opp %}has-opp{% endif %}">
+        <div class="ds-card tl-card">
+            <div class="tl-score {% if a.score >= 80 %}s-high{% elif a.score >= 60 %}s-mid{% else %}s-low{% endif %}">{{ a.score }}</div>
+            <div class="tl-main">
+                <div class="tl-title"><a href="/analysis/{{ a.id }}">{{ a.title }}</a></div>
+                <div class="tl-meta">{{ a.mp_name }} · {{ a.time_label }}
+                    {% if a.action_status and a.action_status != 'pending' %}
+                    · <span class="ds-tag ds-tag-neutral" style="height:18px">{{ a.action_label }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% if a.has_opp %}
+            <span class="ds-tag {% if a.score >= 80 %}ds-tag-success{% endif %}">{{ a.type_label }}</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endfor %}
+</div>
+{% else %}
+<div class="ds-card empty-state">
+    <div class="icon">🔍</div>
+    <div class="title">没有找到匹配的记录</div>
+    <p>试试放宽日期范围或换个关键词</p>
+</div>
+{% endif %}
 {% endblock %}
