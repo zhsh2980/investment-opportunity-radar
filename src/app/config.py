@@ -15,10 +15,8 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
     
-    # WeRSS
-    werss_base_url: str = "http://localhost:8001"
-    werss_username: str = "admin"
-    werss_password: str = ""
+    # 今天看啥 VIP RSS（JSON 数组，每个专栏一条带个人 token 的 feed 地址）
+    jtks_feeds: list[str] = []
     
     # DeepSeek
     deepseek_api_key: str = ""
@@ -30,6 +28,7 @@ class Settings(BaseSettings):
     dingtalk_secret: str = ""
     
     # Web 应用
+    public_base_url: str = "https://radar.codexcc.cc"  # 钉钉推送链接使用的公网地址
     secret_key: str = "change-me-in-production"
     radar_admin_username: str = "admin"
     radar_admin_password: str = ""

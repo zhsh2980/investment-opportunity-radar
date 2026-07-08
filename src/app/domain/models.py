@@ -94,9 +94,9 @@ class ContentItem(Base):
     )
     
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    source_type: Mapped[str] = mapped_column(String(32), default="werss", nullable=False)
+    source_type: Mapped[str] = mapped_column(String(32), default="jtks", nullable=False)  # jtks=今天看啥, werss=历史数据
     source_id: Mapped[str] = mapped_column(String(64), default="default", nullable=False)
-    external_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)  # WeRSS article_id
+    external_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)  # 今天看啥 /t/{id} 的 id
     mp_id: Mapped[Optional[str]] = mapped_column(String(255))
     mp_name: Mapped[Optional[str]] = mapped_column(Text)
     title: Mapped[str] = mapped_column(Text, nullable=False)
@@ -104,8 +104,8 @@ class ContentItem(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
     pic_url: Mapped[Optional[str]] = mapped_column(Text)
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    werss_publish_time: Mapped[int] = mapped_column(BigInteger, nullable=False)  # Unix 时间戳（秒）
-    status: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # WeRSS status
+    werss_publish_time: Mapped[int] = mapped_column(BigInteger, nullable=False)  # 发布 Unix 时间戳（秒），列名为历史遗留
+    status: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     raw_html: Mapped[Optional[str]] = mapped_column(Text)
     raw_text: Mapped[Optional[str]] = mapped_column(Text)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)  # sha256

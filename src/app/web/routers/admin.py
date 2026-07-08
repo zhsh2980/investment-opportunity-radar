@@ -637,62 +637,57 @@ async def get_pending_articles_count(
     db: Session = Depends(get_db)
 ):
     """
-    实时从 WeRSS 获取待分析文章数量
-    
+    实时从「今天看啥」feed 获取待分析文章数量
+
     逻辑：
-    1. 调用 WeRSS API 获取时间窗口内的文章列表
+    1. 拉取各专栏 feed 获取时间窗口内的文章列表
     2. 对比本地 content_item 表，计算哪些文章尚未同步
     3. 加上本地已同步但 analyzed_status = 0 的文章
     4. 返回总数
     """
     user = get_current_user(request, db)
-    
-    from ...clients.werss import get_werss_client
+
+    from ...clients.jtks import get_jtks_client
     from ...domain.models import ContentItem, Settings
     from datetime import timedelta
-    
+
     try:
         # 获取时间窗口配置
         window_setting = db.query(Settings).filter(Settings.key == "window_days").first()
         window_days = window_setting.value_json if window_setting else 3
-        
+
         now = datetime.now()
         start_time = now - timedelta(days=window_days)
-        end_time = now
-        
-        # 从 WeRSS 获取文章列表
-        werss = get_werss_client()
-        werss_articles = werss.get_articles_by_time_range(
-            start_time=start_time,
-            end_time=end_time,
-            has_content=False,
+
+        # 拉取各专栏 feed
+        articles, _ = get_jtks_client().fetch_all()
+        feed_ids = set(
+            a["external_id"] for a in articles
+            if a["external_id"] and (a["published_at"] is None or a["published_at"] >= start_time)
         )
-        
-        # 获取 WeRSS 返回的所有文章 ID
-        werss_ids = set(str(article.get("id", "")) for article in werss_articles if article.get("id"))
-        
+
         # 查询本地已存在的文章 ID
         local_items = db.query(ContentItem.external_id, ContentItem.analyzed_status).filter(
-            ContentItem.external_id.in_(werss_ids)
-        ).all() if werss_ids else []
-        
+            ContentItem.external_id.in_(feed_ids)
+        ).all() if feed_ids else []
+
         local_ids = set(item.external_id for item in local_items)
-        
-        # 计算待同步数量（WeRSS 有但本地没有）
-        pending_sync = len(werss_ids - local_ids)
-        
+
+        # 计算待同步数量（feed 有但本地没有）
+        pending_sync = len(feed_ids - local_ids)
+
         # 计算本地待分析数量（已同步但 analyzed_status = 0）
         pending_analyze = sum(1 for item in local_items if item.analyzed_status == 0)
-        
+
         # 总待分析数 = 待同步 + 本地待分析
         total_pending = pending_sync + pending_analyze
-        
+
         return {
             "status": "success",
             "total_pending": total_pending,
             "pending_sync": pending_sync,      # 待同步（新文章）
             "pending_analyze": pending_analyze, # 待分析（已同步）
-            "werss_total": len(werss_ids),      # WeRSS 总文章数
+            "feed_total": len(feed_ids),        # feed 内文章总数
         }
         
     except Exception as e:
@@ -711,28 +706,25 @@ async def get_system_status(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     
     status = {
-        "werss": {"status": "unknown", "message": "未检测"},
+        "jtks": {"status": "unknown", "message": "未检测"},
         "deepseek": {"status": "unknown", "message": "未检测"}
     }
-    
-    # 检查 WeRSS 连接
+
+    # 检查今天看啥 feed 连接
     try:
-        from ...clients.werss import get_werss_client
-        client = get_werss_client()
-        
-        # 检查现有 Token 是否有效
-        if client._is_token_valid():
-            status["werss"] = {"status": "ok", "message": "Token 有效"}
+        from ...clients.jtks import get_jtks_client
+        client = get_jtks_client()
+        if not client.feeds:
+            status["jtks"] = {"status": "error", "message": "未配置 JTKS_FEEDS"}
         else:
-            # 尝试获取新 Token（会自动登录或刷新）
-            client._get_token()
-            status["werss"] = {"status": "ok", "message": "连接正常"}
+            articles = client.fetch_feed(client.feeds[0])
+            status["jtks"] = {"status": "ok", "message": f"连接正常 ({len(articles)} 篇)"}
     except Exception as e:
         error_msg = str(e)
         if len(error_msg) > 50:
             error_msg = error_msg[:50] + "..."
-        status["werss"] = {"status": "error", "message": f"连接失败: {error_msg}"}
-        logger.warning(f"WeRSS 状态检测失败: {e}")
+        status["jtks"] = {"status": "error", "message": f"连接失败: {error_msg}"}
+        logger.warning(f"今天看啥 feed 状态检测失败: {e}")
     
     # 检查 DeepSeek API 配置
     try:
@@ -894,37 +886,28 @@ async def get_health_detail(request: Request, db: Session = Depends(get_db)):
 
 
 
-    # 6. WeRSS
+    # 6. 今天看啥 feed
     try:
-        from ...clients.werss import get_werss_client
-        client = get_werss_client()
-        if client._is_token_valid():
-             status["services"].append({
-                "name": "WeRSS 连接",
-                "status": "ok",
-                "message": "Token 有效",
+        from ...clients.jtks import get_jtks_client
+        client = get_jtks_client()
+        if not client.feeds:
+            status["services"].append({
+                "name": "今天看啥 RSS",
+                "status": "error",
+                "message": "未配置 JTKS_FEEDS",
                 "icon": "rss"
             })
         else:
-             # 尝试刷新
-             try:
-                 client._get_token()
-                 status["services"].append({
-                    "name": "WeRSS 连接",
-                    "status": "ok",
-                    "message": "连接正常 (已刷新)",
-                    "icon": "rss"
-                })
-             except Exception:
-                 status["services"].append({
-                    "name": "WeRSS 连接",
-                    "status": "error",
-                    "message": "Token 无效且刷新失败",
-                    "icon": "rss"
-                })
+            articles = client.fetch_feed(client.feeds[0])
+            status["services"].append({
+                "name": "今天看啥 RSS",
+                "status": "ok",
+                "message": f"连接正常 ({len(client.feeds)} 个专栏)",
+                "icon": "rss"
+            })
     except Exception as e:
         status["services"].append({
-            "name": "WeRSS 连接",
+            "name": "今天看啥 RSS",
             "status": "error",
             "message": "连接失败",
             "detail": str(e),

@@ -2,7 +2,7 @@
 投资机会雷达 - 文章分析服务
 
 核心分析逻辑：
-1. 从 WeRSS 获取文章
+1. 从「今天看啥」VIP RSS 获取文章
 2. 使用 DeepSeek 分析
 3. 保存结果到数据库
 4. 根据阈值触发钉钉推送
@@ -14,7 +14,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
 
-from ..clients.werss import get_werss_client
+from ..clients.jtks import get_jtks_client
 from ..clients.deepseek import get_deepseek_client
 from ..clients.dingtalk import get_dingtalk_client
 from ..core.prompts import (
@@ -84,25 +84,26 @@ def has_content(item: ContentItem) -> bool:
 
 def try_refresh_content(session: Session, item: ContentItem) -> ContentItem:
     """
-    尝试从 WeRSS 重新获取文章正文
-    
-    当本地文章无正文时，调用此函数重新拉取。
-    如果成功获取到正文，更新数据库并返回更新后的对象。
-    
+    尝试从「今天看啥」feed 重新获取文章正文
+
+    当本地文章无正文时，重新扫描各专栏 feed 找到该文章并更新。
+    feed 只保留最近若干篇，过旧的文章可能已不在 feed 中。
+
     Args:
         session: 数据库会话
         item: 文章对象
-        
+
     Returns:
         更新后的文章对象（如果获取到正文）或原对象
     """
-    werss = get_werss_client()
-    
+    client = get_jtks_client()
+
     try:
         logger.info(f"重新拉取文章正文: {item.title[:30]}...")
-        detail = werss.get_article_detail(item.external_id)
-        
-        raw_html = detail.get("content", "")
+        articles, _ = client.fetch_all()
+        match = next((a for a in articles if a["external_id"] == item.external_id), None)
+
+        raw_html = match["html"] if match else ""
         if raw_html and len(raw_html.strip()) > 100:
             # 成功获取到正文，更新数据库
             raw_text = html_to_text(raw_html)
@@ -112,11 +113,11 @@ def try_refresh_content(session: Session, item: ContentItem) -> ContentItem:
             session.commit()
             logger.info(f"成功更新文章正文: {item.title[:30]}")
         else:
-            logger.info(f"WeRSS 仍无正文: {item.title[:30]}")
-            
+            logger.info(f"feed 中未找到正文: {item.title[:30]}")
+
     except Exception as e:
         logger.error(f"重新拉取正文失败: {item.external_id}, {e}")
-    
+
     return item
 
 
@@ -142,80 +143,151 @@ def fetch_and_save_articles(
     end_time: datetime,
 ) -> List[ContentItem]:
     """
-    从 WeRSS 获取文章并保存到数据库
-    
+    从「今天看啥」各专栏 feed 获取文章并保存到数据库
+
     Returns:
         新增的文章列表
     """
-    werss = get_werss_client()
-    
-    # 获取时间范围内的文章（不含内容，用于筛选）
-    articles = werss.get_articles_by_time_range(
-        start_time=start_time,
-        end_time=end_time,
-        has_content=False,
-    )
-    
+    client = get_jtks_client()
+    articles, failures = client.fetch_all()
+
     new_items = []
-    
+
     for article in articles:
-        external_id = str(article.get("id", ""))
-        
+        published_at = article["published_at"]
+        # feed 只有最近若干篇，按窗口过滤（无发布时间的保留，交给后续流程判断）
+        if published_at and not (start_time <= published_at <= end_time):
+            continue
+
+        external_id = article["external_id"]
+
         # 检查是否已存在
         existing = session.query(ContentItem).filter(
             ContentItem.external_id == external_id
         ).first()
-        
+
         if existing:
             logger.debug(f"文章已存在: {external_id}")
             continue
-        
-        # 获取详情（含完整内容）
-        try:
-            detail = werss.get_article_detail(external_id)
-        except Exception as e:
-            logger.error(f"获取文章详情失败: {external_id}, {e}")
-            continue
-        
-        # 提取字段
-        raw_html = detail.get("content", "")
+
+        raw_html = article["html"]
         raw_text = html_to_text(raw_html)
-        
-        # 计算内容哈希
         content_hash = compute_content_hash(raw_text)
-        
-        # 解析发布时间
-        publish_time = article.get("publish_time", 0)
-        published_at = datetime.fromtimestamp(publish_time)
-        
+
+        published_at = published_at or datetime.now()
+
         # 创建记录
         item = ContentItem(
-            source_type="werss",
-            source_id=article.get("mp_id", "default"),
+            source_type="jtks",
+            source_id=article["column_id"],
             external_id=external_id,
-            mp_id=article.get("mp_id"),
-            mp_name=article.get("mp_name"),
-            title=article.get("title", "无标题"),
-            url=article.get("url"),
-            description=article.get("description"),
-            pic_url=article.get("pic_url"),
+            mp_id=article["column_id"],
+            mp_name=article["column_name"],
+            title=article["title"],
+            url=article["url"],
+            description=raw_text[:200] if raw_text else None,
+            pic_url=None,
             published_at=published_at,
-            werss_publish_time=publish_time,
+            werss_publish_time=int(published_at.timestamp()),
             status=1,
             raw_html=raw_html,
             raw_text=raw_text,
             content_hash=content_hash,
             analyzed_status=0,  # 待分析
         )
-        
+
         session.add(item)
         new_items.append(item)
         logger.info(f"新增文章: {item.title[:30]}...")
-    
+
     session.commit()
     logger.info(f"获取文章完成: 新增 {len(new_items)} 篇")
-    
+
+    # 数据源健康检查（连续失败 / 长时间无新文章 → 钉钉告警）
+    try:
+        check_source_health(session, failures)
+    except Exception as e:
+        logger.error(f"数据源健康检查失败: {e}")
+
     return new_items
+
+
+# 数据源健康告警阈值
+FEED_FAIL_ALERT_THRESHOLD = 3      # feed 连续失败次数
+COLUMN_STALE_HOURS = 48            # 专栏无新文章告警阈值（小时）
+STALE_ALERT_INTERVAL_HOURS = 24    # 同一告警的最小间隔（小时）
+
+
+def check_source_health(session: Session, failures: Dict[str, str]) -> None:
+    """
+    数据源健康检查，异常时钉钉告警：
+    1. 某个 feed 连续失败 >= FEED_FAIL_ALERT_THRESHOLD 次
+    2. 某专栏超过 COLUMN_STALE_HOURS 小时无新文章
+    告警状态记录在 settings 表 key=jtks_feed_health。
+    """
+    now = datetime.now()
+    health_setting = session.query(Settings).filter(Settings.key == "jtks_feed_health").first()
+    health: Dict[str, Any] = dict(health_setting.value_json) if health_setting else {}
+    feed_state: Dict[str, Any] = dict(health.get("feeds", {}))
+    stale_state: Dict[str, Any] = dict(health.get("stale_alerts", {}))
+    alerts: List[str] = []
+
+    # 1. feed 连续失败计数
+    settings = get_settings()
+    for feed_url in settings.jtks_feeds:
+        key = feed_url[-24:]  # 用尾部 token 片段做 key，避免整条 URL 入库
+        state = dict(feed_state.get(key, {"fail_count": 0, "alerted": False}))
+        if feed_url in failures:
+            state["fail_count"] = state.get("fail_count", 0) + 1
+            if state["fail_count"] >= FEED_FAIL_ALERT_THRESHOLD and not state.get("alerted"):
+                alerts.append(
+                    f"- feed 连续 {state['fail_count']} 次拉取失败（…{key}）：{failures[feed_url][:80]}"
+                )
+                state["alerted"] = True
+        else:
+            state = {"fail_count": 0, "alerted": False}
+        feed_state[key] = state
+
+    # 2. 专栏超时无新文章
+    from sqlalchemy import func as sa_func
+    rows = (
+        session.query(ContentItem.mp_name, sa_func.max(ContentItem.published_at))
+        .filter(ContentItem.source_type == "jtks")
+        .group_by(ContentItem.mp_name)
+        .all()
+    )
+    for mp_name, latest in rows:
+        if latest is None:
+            continue
+        hours = (now - latest).total_seconds() / 3600
+        if hours >= COLUMN_STALE_HOURS:
+            last_alert = stale_state.get(mp_name)
+            last_alert_dt = datetime.fromisoformat(last_alert) if last_alert else None
+            if not last_alert_dt or (now - last_alert_dt).total_seconds() >= STALE_ALERT_INTERVAL_HOURS * 3600:
+                alerts.append(f"- 专栏「{mp_name}」已 {int(hours)} 小时无新文章")
+                stale_state[mp_name] = now.isoformat()
+        else:
+            stale_state.pop(mp_name, None)
+
+    # 保存健康状态
+    new_value = {"feeds": feed_state, "stale_alerts": stale_state, "checked_at": now.isoformat()}
+    if health_setting:
+        health_setting.value_json = new_value
+    else:
+        session.add(Settings(key="jtks_feed_health", value_json=new_value))
+    session.commit()
+
+    # 发送告警
+    if alerts:
+        try:
+            dingtalk = get_dingtalk_client()
+            dingtalk.send_markdown(
+                title="数据源健康告警",
+                text="## ⚠️ 数据源健康告警\n\n" + "\n".join(alerts),
+            )
+            logger.warning(f"已发送数据源健康告警: {len(alerts)} 条")
+        except Exception as e:
+            logger.error(f"发送数据源健康告警失败: {e}")
 
 
 def analyze_article(

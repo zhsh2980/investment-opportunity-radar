@@ -185,7 +185,7 @@ def execute_slot(slot: str, manual: bool = False):
             
             # 判断是否为当天最后一个时间点（动态获取）
             is_last_slot = is_last_slot_of_day(session, slot)
-            base_url = f"http://154.8.205.159:8080"  # TODO: 从配置读取
+            base_url = get_settings().public_base_url.rstrip("/")
             
             # 4. 逐篇分析 + 立即推送
             pushed_count = 0
