@@ -215,26 +215,22 @@ class DingTalkClient:
         total_articles: int,
         total_opportunities: int,
         digest: str,
-        base_url: str,
         msg_uuid: str,
     ) -> Dict[str, Any]:
         """
-        发送每日日报（22:00 必推）
-        
+        发送每日日报（22:00 必推，纯钉钉消息，不链接系统内任何页面）
+
         Args:
             date: 日期 YYYY-MM-DD
             has_opportunity: 是否有机会
             total_articles: 文章总数
             total_opportunities: 机会总数
-            digest: 摘要内容
-            base_url: 系统基础 URL
+            digest: 按信源分组好的正文（已提醒的条目已被 digest 内容标注，不重复展开）
             msg_uuid: 幂等 key
-        
+
         Returns:
             钉钉 API 响应
         """
-        report_url = f"{base_url}/daily/{date}"
-
         status_emoji = "✅" if has_opportunity else "📭"
         status_text = "发现机会" if has_opportunity else "暂无机会"
 
@@ -247,10 +243,6 @@ class DingTalkClient:
 ---
 
 {digest}
-
----
-
-[👉 查看完整日报]({report_url})
 """
 
         return self.send_markdown(

@@ -242,7 +242,6 @@ def execute_slot(slot: str, manual: bool = False):
                     session=session,
                     run_date=run_date,
                     slot=slot,
-                    base_url=base_url,
                 )
                 stats["pushed"] = success
             elif manual:
@@ -283,17 +282,64 @@ def execute_slot(slot: str, manual: bool = False):
         session.close()
 
 
+def _get_alerted_analysis_ids(session, run_date: date) -> set:
+    """今天已经通过独立简报成功推送过的 analysis id 集合（日报里不再重复展开要点）"""
+    logs = session.query(NotificationLog).filter(
+        NotificationLog.push_type == "opportunity",
+        NotificationLog.report_date == run_date,
+        NotificationLog.status == 1,
+    ).all()
+    return {
+        log.payload.get("analysis_id")
+        for log in logs
+        if log.payload and log.payload.get("analysis_id") is not None
+    }
+
+
+def _format_digest_line(a) -> str:
+    """未单独推送过的文章：分数 + 标题（超链原文）+ 要点首条"""
+    item = a.content_item
+    key_points = a.result_json.get("key_points", [])
+    first_point = key_points[0] if key_points else ""
+    title_md = f"[{item.title}]({item.url})" if item.url else item.title
+    line = f"· {a.score}分 {title_md}"
+    if first_point:
+        line += f" — {first_point}"
+    return line
+
+
+def _build_grouped_digest_body(analyses, alerted_ids: set) -> str:
+    """按信源分组、组内按分数降序拼装日报正文"""
+    groups: dict = {}
+    for a in analyses:
+        name = a.content_item.mp_name or "未知来源"
+        groups.setdefault(name, []).append(a)
+    for items in groups.values():
+        items.sort(key=lambda a: a.score, reverse=True)
+
+    sections = []
+    for name in sorted(groups.keys()):
+        lines = [f"**{name}**"]
+        for a in groups[name]:
+            if a.id in alerted_ids:
+                lines.append(f"· {a.score}分 {a.content_item.title}（已提醒）")
+            else:
+                lines.append(_format_digest_line(a))
+        sections.append("\n".join(lines))
+    return "\n\n".join(sections)
+
+
 def generate_and_push_daily_report(
     session,
     run_date: date,
     slot: str,
-    base_url: str,
 ) -> bool:
     """
-    生成并推送日报（拼装模式，不再调用 AI）
+    生成并推送日报（拼装模式，不调用 AI）：按信源分组，已单独推送过简报的
+    条目只标「（已提醒）」不重复展开要点。纯钉钉消息，不链接系统内任何页面。
     """
     logger.info(f"开始生成日报: {run_date}")
-    
+
     # 获取当天所有分析结果
     today_analyses = session.query(AnalysisResult).join(ContentItem).filter(
         and_(
@@ -301,49 +347,29 @@ def generate_and_push_daily_report(
             ContentItem.published_at < datetime.combine(run_date + timedelta(days=1), datetime.min.time()),
         )
     ).order_by(AnalysisResult.score.desc()).all()
-    
+
     # 获取阈值
     threshold = get_setting_value(session, "push_score_threshold", 60)
-    
+
     # 统计
     total_articles = len(today_analyses)
     opportunities = [a for a in today_analyses if a.has_opportunity and a.score >= threshold]
     total_opportunities = len(opportunities)
-    
-    # 构建日报内容（拼装模式）
+    has_opportunity = total_opportunities > 0
+
+    # 构建日报正文（拼装模式，按信源分组）
     if total_articles > 0:
-        status_emoji = "✅" if total_opportunities > 0 else "📭"
-        status_text = f"发现 {total_opportunities} 个机会" if total_opportunities > 0 else "暂无机会"
-        
-        digest_md = f"## 📊 {run_date} 投资机会日报\n\n"
-        digest_md += f"**状态**: {status_emoji} {status_text}\n\n"
-        digest_md += f"**统计**: 共分析 {total_articles} 篇文章\n\n"
-        digest_md += "---\n\n"
-        
-        for a in today_analyses:
-            item = a.content_item
-            icon = "🎯" if a.has_opportunity and a.score >= threshold else "📄"
-            
-            # 获取 content_abstract（新字段）或 fallback 到 summary
-            content_abstract = a.result_json.get("content_abstract", "") or a.summary_md or ""
-            
-            digest_md += f"### {icon} [{a.score}分] {item.title}\n\n"
-            digest_md += f"**来源**: {item.mp_name or '未知'}\n\n"
-            if content_abstract:
-                digest_md += f"> {content_abstract[:300]}\n\n"
-            digest_md += f"[查看详情]({base_url}/analysis/{a.id})\n\n"
-            digest_md += "---\n\n"
-        
-        has_opportunity = total_opportunities > 0
+        alerted_ids = _get_alerted_analysis_ids(session, run_date)
+        digest_md = _build_grouped_digest_body(today_analyses, alerted_ids)
     else:
-        digest_md = f"## 📊 {run_date} 投资机会日报\n\n**今日无新文章分析。**"
-        has_opportunity = False
-    
+        digest_md = "今日无新文章分析。"
+
     # 构建 compact 结构用于存储
     analyses_compact = []
     for a in today_analyses:
         item = a.content_item
         opp_types = a.result_json.get("opportunity_types", [])
+        key_points = a.result_json.get("key_points", [])
         analyses_compact.append({
             "title": item.title,
             "mp_name": item.mp_name,
@@ -351,11 +377,10 @@ def generate_and_push_daily_report(
             "score": a.score,
             "has_opportunity": a.has_opportunity,
             "top_type": opp_types[0] if opp_types else "",
-            "content_abstract": a.result_json.get("content_abstract", ""),
-            "summary": a.summary_md[:200] if a.summary_md else "",
-            "analysis_url": f"{base_url}/analysis/{a.id}",
+            "key_points": key_points,
+            "url": item.url,
         })
-    
+
     # 保存日报
     report = session.query(DailyReport).filter(DailyReport.report_date == run_date).first()
     if report:
@@ -379,31 +404,30 @@ def generate_and_push_daily_report(
         )
         session.add(report)
     session.commit()
-    
+
     # 推送日报
     dingtalk = get_dingtalk_client()
     msg_uuid = generate_msg_uuid(str(run_date), slot, "daily")
-    
+
     try:
         result = dingtalk.send_daily_report(
             date=str(run_date),
             has_opportunity=has_opportunity,
             total_articles=total_articles,
             total_opportunities=total_opportunities,
-            digest=digest_md[:500],  # 摘要
-            base_url=base_url,
+            digest=digest_md,
             msg_uuid=msg_uuid,
         )
-        
+
         success = result.get("errcode") == 0
-        
-        # 记录推送日志
+
+        # 记录推送日志（target_url 留空：/daily 落地页已下线，日报只作为钉钉消息存在）
         log = NotificationLog(
             report_date=run_date,  # Date 列需要真正的 date 对象；Postgres 曾容忍字符串，SQLite 不容忍
             slot=slot,
             push_type="daily",
             msg_uuid=msg_uuid,
-            target_url=f"{base_url}/daily/{run_date}",
+            target_url="",
             title=f"日报 {run_date}",
             payload={"report_date": str(run_date)},
             response=result,
@@ -412,10 +436,10 @@ def generate_and_push_daily_report(
         )
         session.add(log)
         session.commit()
-        
+
         logger.info(f"日报推送{'成功' if success else '失败'}: {run_date}")
         return success
-        
+
     except Exception as e:
         logger.error(f"日报推送异常: {e}")
         return False
