@@ -5,7 +5,7 @@
 1. 从「今天看啥」VIP RSS 获取文章
 2. 使用 DeepSeek 分析
 3. 保存结果到数据库
-4. 根据阈值触发钉钉推送
+4. 根据阈值触发钉钉 + 飞书推送（两个渠道并行、互相独立）
 """
 import json
 import hashlib
@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from ..clients.jtks import get_jtks_client
 from ..clients.deepseek import get_deepseek_client
 from ..clients.dingtalk import get_dingtalk_client
+from ..clients.feishu import get_feishu_client, is_feishu_configured
 from ..core.prompts import (
     OPPORTUNITY_ANALYZER_SYSTEM_PROMPT,
     OPPORTUNITY_ANALYZER_USER_TEMPLATE,
@@ -288,17 +289,27 @@ def check_source_health(session: Session, failures: Dict[str, str]) -> None:
         session.add(Settings(key="jtks_feed_health", value_json=new_value))
     session.commit()
 
-    # 发送告警
+    # 发送告警（钉钉 + 飞书并行，一个渠道失败不影响另一个）
     if alerts:
+        alert_text = "\n".join(alerts)
         try:
-            dingtalk = get_dingtalk_client()
-            dingtalk.send_markdown(
+            get_dingtalk_client().send_markdown(
                 title="数据源健康告警",
-                text="## ⚠️ 数据源健康告警\n\n" + "\n".join(alerts),
+                text="## ⚠️ 数据源健康告警\n\n" + alert_text,
             )
-            logger.warning(f"已发送数据源健康告警: {len(alerts)} 条")
+            logger.warning(f"已发送数据源健康告警(钉钉): {len(alerts)} 条")
         except Exception as e:
-            logger.error(f"发送数据源健康告警失败: {e}")
+            logger.error(f"发送数据源健康告警失败(钉钉): {e}")
+
+        if is_feishu_configured():
+            try:
+                get_feishu_client().send_markdown(
+                    title="数据源健康告警",
+                    text=alert_text,
+                )
+                logger.warning(f"已发送数据源健康告警(飞书): {len(alerts)} 条")
+            except Exception as e:
+                logger.error(f"发送数据源健康告警失败(飞书): {e}")
 
 
 def analyze_article(
@@ -439,9 +450,12 @@ def push_opportunity_alert(
     slot: str,
     base_url: str,
 ) -> bool:
-    """推送机会简报到钉钉（要点 + 仅原文链接，不再链接系统详情页）"""
-    dingtalk = get_dingtalk_client()
+    """
+    推送机会简报到钉钉 + 飞书（要点 + 仅原文链接，不再链接系统详情页）。
 
+    两个渠道各自独立发送、各自记录一条 NotificationLog；一个渠道失败不影响
+    另一个，只要有任意一个成功就算整体推送成功。
+    """
     content_item = analysis.content_item
 
     # 获取主要机会类型
@@ -449,51 +463,111 @@ def push_opportunity_alert(
     top_type = opp_types[0] if opp_types else "other"
     top_type_name = OPPORTUNITY_TYPES.get(top_type, top_type)
     key_points = analysis.result_json.get("key_points", [])
+    mp_name = content_item.mp_name or "未知公众号"
+    article_url = content_item.url or ""
 
     # 生成幂等 key
     msg_uuid = hashlib.sha1(
         f"{run_date}:{slot}:opportunity:{analysis.id}".encode()
     ).hexdigest()
+    # report_date 是 Date 列，需要真正的 date 对象；Postgres 曾容忍字符串，SQLite 不容忍
+    report_date = date.fromisoformat(run_date)
 
-    try:
-        result = dingtalk.send_opportunity_alert(
-            mp_name=content_item.mp_name or "未知公众号",
+    dingtalk_success, dt_result, dt_error = push_via_channel(
+        lambda: get_dingtalk_client().send_opportunity_alert(
+            mp_name=mp_name,
             score=analysis.score,
             opportunity_type=top_type_name,
             key_points=key_points,
-            article_url=content_item.url or "",
+            article_url=article_url,
             msg_uuid=msg_uuid,
+        ),
+        success_field="errcode",
+        channel_label="钉钉",
+    )
+    # target_url 保留系统详情页地址供后台核对用，钉钉消息本身不再链接它
+    session.add(NotificationLog(
+        report_date=report_date,
+        slot=slot,
+        push_type="opportunity",
+        msg_uuid=msg_uuid,
+        target_url=f"{base_url}/analysis/{analysis.id}",
+        title=f"投资机会 [{analysis.score}分]",
+        payload={"analysis_id": analysis.id},
+        response=dt_result,
+        status=1 if dingtalk_success else 2,
+        error=dt_error,
+    ))
+    session.commit()
+
+    feishu_success = False
+    if is_feishu_configured():
+        feishu_msg_uuid = channel_msg_uuid(msg_uuid, "feishu")
+        feishu_success, fs_result, fs_error = push_via_channel(
+            lambda: get_feishu_client().send_opportunity_alert(
+                mp_name=mp_name,
+                score=analysis.score,
+                opportunity_type=top_type_name,
+                key_points=key_points,
+                article_url=article_url,
+                msg_uuid=feishu_msg_uuid,
+            ),
+            success_field="code",
+            channel_label="飞书",
         )
-
-        success = result.get("errcode") == 0
-
-        # 记录推送日志（target_url 保留系统详情页地址供后台核对用，钉钉消息本身不再链接它）
-        # report_date 是 Date 列，需要真正的 date 对象；Postgres 曾容忍字符串，SQLite 不容忍
-        log = NotificationLog(
-            report_date=date.fromisoformat(run_date),
+        session.add(NotificationLog(
+            report_date=report_date,
             slot=slot,
             push_type="opportunity",
-            msg_uuid=msg_uuid,
+            msg_uuid=feishu_msg_uuid,
             target_url=f"{base_url}/analysis/{analysis.id}",
             title=f"投资机会 [{analysis.score}分]",
             payload={"analysis_id": analysis.id},
-            response=result,
-            status=1 if success else 2,
-            error=result.get("errmsg") if not success else None,
-        )
-        session.add(log)
+            response=fs_result,
+            status=1 if feishu_success else 2,
+            error=fs_error,
+        ))
         session.commit()
 
-        return success
-
-    except Exception as e:
-        logger.error(f"推送机会提醒失败: {e}")
-        return False
+    return dingtalk_success or feishu_success
 
 
 def generate_msg_uuid(date: str, slot: str, push_type: str) -> str:
     """生成推送幂等 key"""
     return hashlib.sha1(f"{date}:{slot}:{push_type}".encode()).hexdigest()
+
+
+def channel_msg_uuid(base_msg_uuid: str, channel: str) -> str:
+    """给同一条消息的不同推送渠道派生出各自的幂等 key（渠道各写各的 NotificationLog）"""
+    return f"{base_msg_uuid}-{channel}"
+
+
+def push_via_channel(send_fn, success_field: str, channel_label: str) -> Tuple[bool, dict, Optional[str]]:
+    """
+    执行单个推送渠道的发送动作。
+
+    不同渠道的成功判定字段不同（钉钉是 errcode，飞书是 code），错误信息字段
+    也不同（errmsg / msg），所以由调用方传入 success_field，错误信息则两种
+    都尝试取。NotificationLog 的具体字段（title/payload/target_url 等）各
+    渠道各不相同，仍由调用方自己构造——这里只收敛"发送 + 判定成功 + 兜底异常"
+    这部分四个调用点完全相同的逻辑。
+
+    Args:
+        send_fn: 无参调用即可发出消息的闭包，返回渠道 API 的响应 dict
+        success_field: 响应里表示成功的字段名（"errcode" 或 "code"，值为 0 表示成功）
+        channel_label: 渠道名称，仅用于日志（如"钉钉"/"飞书"）
+
+    Returns:
+        (是否成功, API 响应 dict（失败时为空 dict）, 错误信息（成功时为 None）)
+    """
+    try:
+        result = send_fn()
+        success = result.get(success_field) == 0
+        error = None if success else (result.get("errmsg") or result.get("msg"))
+        return success, result, error
+    except Exception as e:
+        logger.error(f"推送失败({channel_label}): {e}")
+        return False, {}, str(e)
 
 
 def push_manual_summary(
@@ -511,49 +585,61 @@ def push_manual_summary(
         run_date: 运行日期
         slot: 运行时间段
     """
-    dingtalk = get_dingtalk_client()
-    
     # 生成幂等 key
     msg_uuid = generate_msg_uuid(run_date, slot, "manual_summary")
-    
+    report_date = date.fromisoformat(run_date)  # report_date 是 Date 列，需要真正的 date 对象
+
     text = f"""### 📊 手动分析完成
-    
+
 **执行时间**: {run_date} {slot}
 
 **分析统计**: 共分析 {analyzed_count} 篇文章
 
 **分析结果**: 暂未发现投资机会
 """
-    
-    try:
-        result = dingtalk.send_markdown(
-            title="📊 手动分析完成",
-            text=text,
-            msg_uuid=msg_uuid,
+
+    dingtalk_success, dt_result, dt_error = push_via_channel(
+        lambda: get_dingtalk_client().send_markdown(title="📊 手动分析完成", text=text, msg_uuid=msg_uuid),
+        success_field="errcode",
+        channel_label="钉钉",
+    )
+    session.add(NotificationLog(
+        report_date=report_date,
+        slot=slot,
+        push_type="manual_summary",
+        msg_uuid=msg_uuid,
+        target_url="",
+        title="手动分析汇总",
+        payload={"analyzed_count": analyzed_count},
+        response=dt_result,
+        status=1 if dingtalk_success else 2,
+        error=dt_error,
+    ))
+    session.commit()
+
+    feishu_success = False
+    if is_feishu_configured():
+        feishu_msg_uuid = channel_msg_uuid(msg_uuid, "feishu")
+        feishu_success, fs_result, fs_error = push_via_channel(
+            lambda: get_feishu_client().send_markdown(title="📊 手动分析完成", text=text, msg_uuid=feishu_msg_uuid),
+            success_field="code",
+            channel_label="飞书",
         )
-        
-        success = result.get("errcode") == 0
-        
-        # 记录推送日志（report_date 是 Date 列，需要真正的 date 对象）
-        log = NotificationLog(
-            report_date=date.fromisoformat(run_date),
+        session.add(NotificationLog(
+            report_date=report_date,
             slot=slot,
             push_type="manual_summary",
-            msg_uuid=msg_uuid,
+            msg_uuid=feishu_msg_uuid,
             target_url="",
             title="手动分析汇总",
             payload={"analyzed_count": analyzed_count},
-            response=result,
-            status=1 if success else 2,
-            error=result.get("errmsg") if not success else None,
-        )
-        session.add(log)
+            response=fs_result,
+            status=1 if feishu_success else 2,
+            error=fs_error,
+        ))
         session.commit()
-        
-        return success
-    except Exception as e:
-        logger.error(f"推送手动汇总失败: {e}")
-        return False
+
+    return dingtalk_success or feishu_success
 
 
 

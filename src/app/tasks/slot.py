@@ -32,10 +32,13 @@ from ..services.analyzer import (
     should_push_opportunity,
     push_opportunity_alert,
     generate_msg_uuid,
+    channel_msg_uuid,
+    push_via_channel,
     has_content,
     try_refresh_content,
 )
 from ..clients.dingtalk import get_dingtalk_client
+from ..clients.feishu import get_feishu_client, is_feishu_configured
 from ..config import get_settings
 from ..logging_config import get_logger
 
@@ -405,41 +408,66 @@ def generate_and_push_daily_report(
         session.add(report)
     session.commit()
 
-    # 推送日报
-    dingtalk = get_dingtalk_client()
+    # 推送日报（钉钉 + 飞书并行，各自独立记录一条 NotificationLog）
     msg_uuid = generate_msg_uuid(str(run_date), slot, "daily")
 
-    try:
-        result = dingtalk.send_daily_report(
+    # report_date 是 Date 列，需要真正的 date 对象；Postgres 曾容忍字符串，SQLite 不容忍
+    dingtalk_success, dt_result, dt_error = push_via_channel(
+        lambda: get_dingtalk_client().send_daily_report(
             date=str(run_date),
             has_opportunity=has_opportunity,
             total_articles=total_articles,
             total_opportunities=total_opportunities,
             digest=digest_md,
             msg_uuid=msg_uuid,
+        ),
+        success_field="errcode",
+        channel_label="钉钉",
+    )
+    # target_url 留空：/daily 落地页已下线，日报只作为消息存在
+    session.add(NotificationLog(
+        report_date=run_date,
+        slot=slot,
+        push_type="daily",
+        msg_uuid=msg_uuid,
+        target_url="",
+        title=f"日报 {run_date}",
+        payload={"report_date": str(run_date)},
+        response=dt_result,
+        status=1 if dingtalk_success else 2,
+        error=dt_error,
+    ))
+    session.commit()
+
+    feishu_success = False
+    if is_feishu_configured():
+        feishu_msg_uuid = channel_msg_uuid(msg_uuid, "feishu")
+        feishu_success, fs_result, fs_error = push_via_channel(
+            lambda: get_feishu_client().send_daily_report(
+                date=str(run_date),
+                has_opportunity=has_opportunity,
+                total_articles=total_articles,
+                total_opportunities=total_opportunities,
+                digest=digest_md,
+                msg_uuid=feishu_msg_uuid,
+            ),
+            success_field="code",
+            channel_label="飞书",
         )
-
-        success = result.get("errcode") == 0
-
-        # 记录推送日志（target_url 留空：/daily 落地页已下线，日报只作为钉钉消息存在）
-        log = NotificationLog(
-            report_date=run_date,  # Date 列需要真正的 date 对象；Postgres 曾容忍字符串，SQLite 不容忍
+        session.add(NotificationLog(
+            report_date=run_date,
             slot=slot,
             push_type="daily",
-            msg_uuid=msg_uuid,
+            msg_uuid=feishu_msg_uuid,
             target_url="",
             title=f"日报 {run_date}",
             payload={"report_date": str(run_date)},
-            response=result,
-            status=1 if success else 2,
-            error=result.get("errmsg") if not success else None,
-        )
-        session.add(log)
+            response=fs_result,
+            status=1 if feishu_success else 2,
+            error=fs_error,
+        ))
         session.commit()
 
-        logger.info(f"日报推送{'成功' if success else '失败'}: {run_date}")
-        return success
-
-    except Exception as e:
-        logger.error(f"日报推送异常: {e}")
-        return False
+    success = dingtalk_success or feishu_success
+    logger.info(f"日报推送{'成功' if success else '失败'}: {run_date}")
+    return success

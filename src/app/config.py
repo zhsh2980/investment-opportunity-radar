@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     dingtalk_webhook: str = ""
     dingtalk_secret: str = ""
 
+    # 飞书（自建应用机器人，与钉钉并行推送）
+    feishu_app_id: str = ""
+    feishu_app_secret: str = ""
+    feishu_chat_id: str = ""
+
     # Web 应用
     public_base_url: str = "https://radar.codexcc.cc"  # 钉钉推送链接使用的公网地址
     secret_key: str = "change-me-in-production"

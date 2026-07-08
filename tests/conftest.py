@@ -11,7 +11,21 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from src.app.config import get_settings
 from src.app.domain.models import AnalysisResult, Base, ContentItem, PromptVersion
+
+
+@pytest.fixture(autouse=True)
+def _isolate_feishu_config(monkeypatch):
+    """
+    默认强制视为"飞书未配置"，防止测试套件因为 .env 里有真实的飞书
+    app_id/chat_id（本地开发环境部署真实凭据后就会有）而在跑测试时真的把
+    消息发到生产飞书群。需要测试"已配置飞书"分支的用例，自己在测试里
+    mock is_feishu_configured 覆盖这个默认值（参见 test_feishu_push.py）。
+    """
+    settings = get_settings()
+    monkeypatch.setattr(settings, "feishu_app_id", "", raising=False)
+    monkeypatch.setattr(settings, "feishu_chat_id", "", raising=False)
 
 
 @pytest.fixture()
