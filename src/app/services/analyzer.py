@@ -25,7 +25,6 @@ from ..core.prompts import (
 from ..domain.models import (
     ContentItem,
     AnalysisResult,
-    Opportunity,
     SlotRun,
     PromptVersion,
     NotificationLog,
@@ -119,6 +118,13 @@ def try_refresh_content(session: Session, item: ContentItem) -> ContentItem:
         logger.error(f"重新拉取正文失败: {item.external_id}, {e}")
 
     return item
+
+
+def build_summary_md(key_points: List[str]) -> str:
+    """把 AI 输出的要点列表拼接成一段可读文本，供历史/详情页展示"""
+    if not key_points:
+        return ""
+    return " ｜ ".join(f"{i + 1}. {p}" for i, p in enumerate(key_points))
 
 
 def get_active_prompt(session: Session, name: str = "opportunity_analyzer") -> Optional[PromptVersion]:
@@ -315,22 +321,23 @@ def analyze_article(
     """
     deepseek = get_deepseek_client()
     settings = get_settings()
-    
+
     # 准备输入
     user_prompt = OPPORTUNITY_ANALYZER_USER_TEMPLATE.format(
+        current_date=datetime.now().strftime("%Y-%m-%d（%A）"),
         title=content_item.title,
         mp_name=content_item.mp_name or "未知公众号",
         published_at=content_item.published_at.isoformat(),
         url=content_item.url or "",
         content_text=content_item.raw_text or "",
     )
-    
+
     # 使用数据库中的 system_prompt（如有），否则用默认模板
     system_prompt = prompt_version.system_prompt if prompt_version else OPPORTUNITY_ANALYZER_SYSTEM_PROMPT
-    
+
     result_json = None
     last_error = None
-    
+
     for attempt in range(max_retries):
         try:
             # 调用 DeepSeek
@@ -339,35 +346,36 @@ def analyze_article(
                 current_user_prompt += "\n\n务必只输出 JSON，不要输出任何其它字符。"
             elif attempt >= 2:
                 current_user_prompt += "\n\n请严格按 EXAMPLE JSON OUTPUT 的字段顺序输出，缺字段用空值补齐。"
-            
+
             result_json = deepseek.analyze_article(
                 system_prompt=system_prompt,
                 article_content=current_user_prompt,
             )
-            
+
             # 校验必填字段
-            required_fields = ["score", "has_opportunity", "summary"]
+            required_fields = ["score", "has_opportunity", "key_points"]
             missing = [f for f in required_fields if f not in result_json]
             if missing:
                 raise ValueError(f"缺少必填字段: {missing}")
-            
+
             break  # 成功
-            
+
         except Exception as e:
+            result_json = None  # 校验失败或调用异常都不能保留半成品结果，否则最后一次重试会被误判为成功
             last_error = str(e)
             logger.warning(f"分析失败 (attempt {attempt + 1}): {e}")
-    
+
     if not result_json:
         logger.error(f"文章分析最终失败: {content_item.title[:30]}, 错误: {last_error}")
         content_item.analyzed_status = 3  # 失败
         session.commit()
         return None
-    
+
     # 创建分析结果
     score = result_json.get("score", 0)
     has_opportunity = result_json.get("has_opportunity", False)
-    summary = result_json.get("summary", "")
-    
+    key_points = result_json.get("key_points", [])
+
     analysis = AnalysisResult(
         content_item_id=content_item.id,
         run_id=run_id,
@@ -376,50 +384,15 @@ def analyze_article(
         score=score,
         has_opportunity=has_opportunity,
         result_json=result_json,
-        summary_md=summary,
+        summary_md=build_summary_md(key_points),
     )
     session.add(analysis)
     session.flush()  # 获取 ID
-    
-    # 创建机会点记录
-    opportunities = result_json.get("opportunities", [])
-    for idx, opp in enumerate(opportunities):
-        opp_record = Opportunity(
-            analysis_id=analysis.id,
-            idx=idx,
-            type=opp.get("type", "other"),
-            title=opp.get("title", ""),
-            score_hint=opp.get("confidence", 0) * 100 if opp.get("confidence") else None,
-            confidence=opp.get("confidence"),
-            how_to=opp.get("action_steps", []),
-            constraints=opp.get("constraints", []),
-            need_search_queries=opp.get("search_suggestions", []),
-            numbers=opp.get("key_numbers", {}),
-        )
-        
-        # 解析时间窗口
-        time_window = opp.get("time_window", {})
-        if time_window.get("start"):
-            try:
-                opp_record.time_window_start = datetime.fromisoformat(
-                    time_window["start"].replace("Z", "+00:00")
-                )
-            except Exception:
-                pass
-        if time_window.get("end"):
-            try:
-                opp_record.time_window_end = datetime.fromisoformat(
-                    time_window["end"].replace("Z", "+00:00")
-                )
-            except Exception:
-                pass
-        
-        session.add(opp_record)
-    
+
     # 更新文章状态
     content_item.analyzed_status = 2  # 已分析
     content_item.analyzed_at = datetime.utcnow()
-    
+
     session.commit()
     logger.info(f"分析完成: {content_item.title[:30]}, score={score}, has_opp={has_opportunity}")
     

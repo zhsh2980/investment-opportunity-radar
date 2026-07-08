@@ -97,7 +97,7 @@
             </p>
         </div>
 
-        <!-- Content Abstract (新增) -->
+        <!-- Content Abstract (旧版分析结果) -->
         {% if result.content_abstract %}
         <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
             <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide mb-3 flex items-center gap-2">
@@ -111,6 +111,28 @@
             <p class="text-slate-600 text-sm leading-relaxed">
                 {{ result.content_abstract }}
             </p>
+        </div>
+        {% endif %}
+
+        <!-- Key Points (扁平化后的分析结果) -->
+        {% if result.key_points %}
+        <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                    </path>
+                </svg>
+                要点
+            </h3>
+            <ul class="space-y-2">
+                {% for point in result.key_points %}
+                <li class="flex items-start gap-2 text-slate-700 text-sm leading-relaxed">
+                    <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0"></span>
+                    {{ point }}
+                </li>
+                {% endfor %}
+            </ul>
         </div>
         {% endif %}
 

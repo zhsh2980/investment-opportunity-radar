@@ -434,8 +434,8 @@ async def history(
         item = a.content_item
         pub = as_naive(item.published_at)
         d = pub.date()
-        opps = sorted(a.opportunities, key=lambda o: o.idx)
-        _, type_label = classify_type(opps[0].type if opps else "")
+        opp_types = (a.result_json or {}).get("opportunity_types") or []
+        _, type_label = classify_type(opp_types[0] if opp_types else "")
         days_map.setdefault(d, []).append({
             "id": a.id,
             "score": a.score,

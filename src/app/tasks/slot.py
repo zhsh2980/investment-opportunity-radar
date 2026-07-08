@@ -399,7 +399,7 @@ def generate_and_push_daily_report(
         
         # 记录推送日志
         log = NotificationLog(
-            report_date=str(run_date),
+            report_date=run_date,  # Date 列需要真正的 date 对象；Postgres 曾容忍字符串，SQLite 不容忍
             slot=slot,
             push_type="daily",
             msg_uuid=msg_uuid,

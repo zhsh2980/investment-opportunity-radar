@@ -18,6 +18,12 @@ class Base(DeclarativeBase):
     pass
 
 
+# BigInteger 主键在 SQLite 方言下不会走 rowid 自增别名（不同于纯 INTEGER），
+# 内存 SQLite 测试里用 ORM insert 不指定 id 会报 NOT NULL。这个 variant 只在
+# sqlite 方言下降级为 INTEGER 以获得自增行为，对 PostgreSQL 无影响（仍是 BIGINT）。
+SqliteAutoIncrementBigInteger = BigInteger().with_variant(Integer, "sqlite")
+
+
 class AppUser(Base):
     """登录账号"""
     __tablename__ = "app_user"
@@ -128,7 +134,7 @@ class AnalysisResult(Base):
         Index("idx_analysis_created_at", "created_at"),
     )
     
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(SqliteAutoIncrementBigInteger, primary_key=True)
     content_item_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("content_item.id", ondelete="CASCADE"), nullable=False)
     run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("slot_run.id", ondelete="SET NULL"))
     prompt_version_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("prompt_version.id"), nullable=True)
@@ -182,7 +188,7 @@ class OpportunityTrack(Base):
         Index("idx_track_action_created", "action", "created_at"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    id: Mapped[int] = mapped_column(SqliteAutoIncrementBigInteger, primary_key=True)
     analysis_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("analysis_result.id", ondelete="CASCADE"), nullable=False)
     action: Mapped[str] = mapped_column(String(32), nullable=False)  # executed / watching / skipped
     note: Mapped[Optional[str]] = mapped_column(Text)  # 操作记录/复盘笔记
@@ -203,7 +209,7 @@ class DailyReport(Base):
         Index("idx_report_date", "report_date"),
     )
     
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(SqliteAutoIncrementBigInteger, primary_key=True)
     report_date: Mapped[date] = mapped_column(Date, unique=True, nullable=False)
     digest_md: Mapped[str] = mapped_column(Text, nullable=False)
     digest_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
@@ -221,7 +227,7 @@ class NotificationLog(Base):
         Index("idx_notify_status_sent", "status", "sent_at"),
     )
     
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(SqliteAutoIncrementBigInteger, primary_key=True)
     report_date: Mapped[date] = mapped_column(Date, nullable=False)
     slot: Mapped[str] = mapped_column(String(5), nullable=False)
     push_type: Mapped[str] = mapped_column(String(16), nullable=False)  # opportunity / daily
