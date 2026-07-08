@@ -27,17 +27,9 @@
             <nav class="ds-sidenav-items">
                 <div class="ds-sidenav-group">工作区</div>
                 <a href="/" class="ds-sidenav-item {% if request.url.path == '/' %}active{% endif %}">
-                    <svg class="ds-sidenav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-                    <span>今日工作台</span>
-                    {% if pending_count %}<span class="ds-badge">{{ pending_count }}</span>{% endif %}
-                </a>
-                <a href="/tracking" class="ds-sidenav-item {% if request.url.path == '/tracking' %}active{% endif %}">
-                    <svg class="ds-sidenav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
-                    <span>跟踪台</span>
-                </a>
-                <a href="/history" class="ds-sidenav-item {% if request.url.path == '/history' %}active{% endif %}">
                     <svg class="ds-sidenav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
                     <span>历史与搜索</span>
+                    {% if pending_count %}<span class="ds-badge">{{ pending_count }}</span>{% endif %}
                 </a>
                 <div class="ds-sidenav-group">系统</div>
                 <a href="/system" class="ds-sidenav-item {% if request.url.path == '/system' %}active{% endif %}">
@@ -59,7 +51,7 @@
                 <div class="app-search">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
                     <input type="text" placeholder="搜索机会、公众号、关键词…"
-                           onkeydown="if(event.key==='Enter'){location.href='/history?keyword='+encodeURIComponent(this.value)}">
+                           onkeydown="if(event.key==='Enter'){location.href='/?keyword='+encodeURIComponent(this.value)}">
                 </div>
                 <div class="app-topbar-spacer"></div>
                 <button class="ds-btn ds-btn-ghost ds-btn-icononly" onclick="toggleTheme()" title="切换深色模式">

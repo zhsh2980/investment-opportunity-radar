@@ -1,41 +1,34 @@
 """
-投资机会雷达 - 页面路由（Aurora 重构版）
+投资机会雷达 - 页面路由（运维后台）
 
 页面：
-- /          今日工作台（机会处理工作台）
-- /tracking  跟踪台（看板 + 复盘）
-- /history   历史与搜索（时间线）
+- /          历史与搜索（时间线，应用首页）
 - /system    系统设置（数据源健康/批次/阈值/Prompt）
-- /analysis/{id}, /daily/{date} 保留（钉钉推送落地页）
+- /analysis/{id} 保留（钉钉简报里的原文核对入口，需登录）
 
-工作台 API：
-- POST /api/workbench/{analysis_id}/action    执行/观望/跳过
-- POST /api/workbench/track/{track_id}/review 复盘记录
+钉钉简报现在只链接公众号原文，不再链接本应用的任何页面。
 """
-from datetime import datetime, date, timedelta
-from decimal import Decimal
+from datetime import date, datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Request, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
-from sqlalchemy import and_, desc, func, Integer, cast, case
+from sqlalchemy import case, desc, func
 from sqlalchemy.orm import Session
 
+from ...core.security import verify_session_token
 from ...database import SessionLocal
 from ...domain.models import (
-    ContentItem,
     AnalysisResult,
-    DailyReport,
-    SlotRun,
-    Opportunity,
-    OpportunityTrack,
-    Settings,
-    PromptVersion,
     AppUser,
+    ContentItem,
+    DailyReport,
+    Opportunity,
+    PromptVersion,
+    Settings,
+    SlotRun,
 )
-from ...core.security import verify_session_token
 from ...logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -121,46 +114,6 @@ def humanize_ago(dt: Optional[datetime]) -> str:
     return f"{max(delta.seconds // 60, 1)} 分钟前"
 
 
-def build_card(analysis: AnalysisResult) -> dict:
-    """把一条分析结果组装成工作台卡片数据"""
-    item = analysis.content_item
-    opps = sorted(analysis.opportunities, key=lambda o: o.idx)
-
-    headline = opps[0].title if opps else item.title
-    type_key, type_label = classify_type(opps[0].type if opps else "")
-
-    # 最近的时间窗口截止
-    deadlines = [as_naive(o.time_window_end) for o in opps if o.time_window_end]
-    deadline = min(deadlines) if deadlines else None
-
-    steps = []
-    if opps and opps[0].how_to:
-        steps = [str(s) for s in opps[0].how_to[:2]]
-
-    return {
-        "analysis_id": analysis.id,
-        "score": analysis.score,
-        "headline": headline,
-        "title": item.title,
-        "mp_name": item.mp_name or "未知来源",
-        "type_key": type_key,
-        "type_label": type_label,
-        "deadline": deadline.isoformat() if deadline else None,
-        "deadline_dt": deadline,
-        "steps": steps,
-        "summary": (analysis.summary_md or "")[:600],
-        "opportunities": [
-            {
-                "title": o.title,
-                "how_to": o.how_to or [],
-                "constraints": o.constraints or [],
-                "numbers": o.numbers or {},
-            }
-            for o in opps
-        ],
-    }
-
-
 def pending_query(db: Session):
     threshold = get_setting_value(db, "push_score_threshold", 60)
     since = naive_now() - timedelta(days=14)
@@ -181,211 +134,10 @@ def get_pending_count(db: Session) -> int:
 
 
 # ============================================================
-# 今日工作台
+# 历史与搜索（应用首页）
 # ============================================================
 @router.get("/", response_class=HTMLResponse)
-async def workbench(request: Request, db: Session = Depends(get_db)):
-    user = get_current_user(request, db)
-    if not user:
-        return RedirectResponse(url="/login", status_code=303)
-
-    urgent_hours = int(get_setting_value(db, "urgent_hours", 48))
-    analyses = pending_query(db).all()
-    cards = [build_card(a) for a in analyses]
-
-    # 排序: 临期优先(有截止且未过期,越近越前) → 分数降序
-    now = naive_now()
-    far_future = now + timedelta(days=3650)
-
-    def sort_key(c):
-        dl = c["deadline_dt"]
-        urgency = dl if (dl and dl > now) else far_future
-        return (urgency, -c["score"])
-
-    cards.sort(key=sort_key)
-
-    urgent_count = sum(
-        1 for c in cards
-        if c["deadline_dt"] and now < c["deadline_dt"] < now + timedelta(hours=urgent_hours)
-    )
-
-    today = date.today()
-    day_start = datetime.combine(today, datetime.min.time())
-    analyzed_today = (
-        db.query(func.count(ContentItem.id))
-        .filter(ContentItem.analyzed_at >= day_start)
-        .scalar()
-        or 0
-    )
-    source_count = db.query(func.count(func.distinct(ContentItem.mp_id))).scalar() or 0
-
-    today_label = f"{today.year} 年 {today.month} 月 {today.day} 日 · {WEEKDAYS[today.weekday()]}"
-
-    return templates.TemplateResponse(request, "pages/dashboard.html", {
-        "request": request,
-        "user": user,
-        "today_label": today_label,
-        "cards": cards,
-        "pending_count": len(cards),
-        "urgent_count": urgent_count,
-        "urgent_hours": urgent_hours,
-        "analyzed_today": analyzed_today,
-        "source_count": source_count,
-    })
-
-
-# ===== 工作台操作 API =====
-class ActionPayload(BaseModel):
-    action: str  # executed / watching / skipped
-
-
-@router.post("/api/workbench/{analysis_id}/action")
-async def workbench_action(
-    analysis_id: int,
-    payload: ActionPayload,
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    user = get_current_user(request, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="未登录")
-
-    if payload.action not in ("executed", "watching", "skipped"):
-        raise HTTPException(status_code=400, detail="无效操作")
-
-    analysis = db.query(AnalysisResult).filter(AnalysisResult.id == analysis_id).first()
-    if not analysis:
-        raise HTTPException(status_code=404, detail="分析结果不存在")
-
-    analysis.action_status = payload.action
-    track = OpportunityTrack(analysis_id=analysis_id, action=payload.action)
-    db.add(track)
-    db.commit()
-
-    logger.info(f"工作台操作: analysis={analysis_id} action={payload.action}")
-    return {"ok": True, "action": payload.action, "track_id": track.id}
-
-
-class ReviewPayload(BaseModel):
-    amount: Optional[float] = None
-    pnl: Optional[float] = None
-    note: Optional[str] = None
-    close: bool = False
-
-
-@router.post("/api/workbench/track/{track_id}/review")
-async def track_review(
-    track_id: int,
-    payload: ReviewPayload,
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    user = get_current_user(request, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="未登录")
-
-    track = db.query(OpportunityTrack).filter(OpportunityTrack.id == track_id).first()
-    if not track:
-        raise HTTPException(status_code=404, detail="跟踪记录不存在")
-
-    if payload.amount is not None:
-        track.amount = Decimal(str(payload.amount))
-    if payload.pnl is not None:
-        track.pnl = Decimal(str(payload.pnl))
-    if payload.note is not None:
-        track.note = payload.note
-    if payload.close:
-        track.closed_at = naive_now()
-    db.commit()
-
-    return {"ok": True}
-
-
-# ============================================================
-# 跟踪台
-# ============================================================
-@router.get("/tracking", response_class=HTMLResponse)
-async def tracking(request: Request, db: Session = Depends(get_db)):
-    user = get_current_user(request, db)
-    if not user:
-        return RedirectResponse(url="/login?next=/tracking", status_code=303)
-
-    # 每个 analysis 取最新一条跟踪记录
-    latest_ids = (
-        db.query(func.max(OpportunityTrack.id))
-        .group_by(OpportunityTrack.analysis_id)
-    ).subquery()
-    tracks = (
-        db.query(OpportunityTrack)
-        .filter(OpportunityTrack.id.in_(latest_ids.select()))
-        .order_by(desc(OpportunityTrack.created_at))
-        .all()
-    )
-
-    def pack(t: OpportunityTrack) -> dict:
-        a = t.analysis_result
-        item = a.content_item
-        opps = sorted(a.opportunities, key=lambda o: o.idx)
-        return {
-            "track_id": t.id,
-            "analysis_id": a.id,
-            "headline": (opps[0].title if opps else item.title)[:60],
-            "mp_name": item.mp_name or "未知来源",
-            "score": a.score,
-            "amount": t.amount,
-            "pnl": t.pnl,
-            "note": t.note,
-            "created_label": humanize_ago(t.created_at),
-            "closed_label": humanize_ago(t.closed_at),
-        }
-
-    watching = [pack(t) for t in tracks if t.action == "watching"]
-    executing = [pack(t) for t in tracks if t.action == "executed" and t.closed_at is None and t.pnl is None]
-    reviewed_tracks = [t for t in tracks if t.action == "executed" and (t.closed_at is not None or t.pnl is not None)]
-    reviewed = []
-    for t in reviewed_tracks:
-        r = pack(t)
-        r["pnl"] = float(r["pnl"] or 0)
-        reviewed.append(r)
-
-    # 月度统计
-    today = date.today()
-    month_start = datetime(today.year, today.month, 1)
-    month_tracks = [
-        t for t in tracks
-        if t.action == "executed" and as_naive(t.created_at) and as_naive(t.created_at) >= month_start
-    ]
-    month_executed = len(month_tracks)
-    month_pnls = [float(t.pnl) for t in month_tracks if t.pnl is not None]
-    month_pnl = sum(month_pnls)
-    month_reviewed = len(month_pnls)
-
-    all_pnls = [(float(t.pnl), t.analysis_result.score) for t in reviewed_tracks if t.pnl is not None]
-    hit_rate = round(100 * len([p for p, s in all_pnls if p > 0]) / len(all_pnls)) if all_pnls else 0
-    high = [(p, s) for p, s in all_pnls if s >= 80]
-    high_score_rate = round(100 * len([p for p, s in high if p > 0]) / len(high)) if high else 0
-
-    return templates.TemplateResponse(request, "pages/tracking.html", {
-        "request": request,
-        "user": user,
-        "pending_count": get_pending_count(db),
-        "watching": watching,
-        "executing": executing,
-        "reviewed": reviewed,
-        "month_label": f"{today.year} 年 {today.month} 月",
-        "month_executed": month_executed,
-        "month_pnl": month_pnl,
-        "month_reviewed": month_reviewed,
-        "hit_rate": hit_rate,
-        "high_score_rate": high_score_rate,
-    })
-
-
-# ============================================================
-# 历史与搜索
-# ============================================================
-@router.get("/history", response_class=HTMLResponse)
-async def history(
+async def home(
     request: Request,
     db: Session = Depends(get_db),
     start_date: Optional[str] = Query(None),
@@ -396,7 +148,7 @@ async def history(
 ):
     user = get_current_user(request, db)
     if not user:
-        return RedirectResponse(url="/login?next=/history", status_code=303)
+        return RedirectResponse(url="/login?next=/", status_code=303)
 
     end_parsed = datetime.strptime(end_date, "%Y-%m-%d").date() if end_date else date.today()
     start_parsed = (
@@ -546,12 +298,20 @@ async def legacy_redirect():
     return RedirectResponse(url="/system", status_code=301)
 
 
+@router.get("/history")
+async def history_redirect():
+    """/history 的内容已迁移到应用首页 /"""
+    return RedirectResponse(url="/", status_code=301)
+
+
 # ============================================================
-# 保留: 分析详情页（钉钉链接落地页,访客可看）
+# 保留: 分析详情页（钉钉简报里的原文核对入口，需登录）
 # ============================================================
 @router.get("/analysis/{analysis_id}", response_class=HTMLResponse)
 async def analysis_detail(request: Request, analysis_id: int, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
 
     analysis = db.query(AnalysisResult).filter(AnalysisResult.id == analysis_id).first()
     if not analysis:
@@ -569,52 +329,4 @@ async def analysis_detail(request: Request, analysis_id: int, db: Session = Depe
         "content_item": content_item,
         "opportunities": opportunities,
         "result": analysis.result_json or {},
-    })
-
-
-# ============================================================
-# 保留: 当日日报页（钉钉链接落地页,访客可看）
-# ============================================================
-@router.get("/daily", response_class=HTMLResponse)
-@router.get("/daily/", response_class=HTMLResponse)
-async def daily_redirect_route(request: Request):
-    return RedirectResponse(url=f"/daily/{date.today().isoformat()}", status_code=303)
-
-
-@router.get("/daily/{report_date}", response_class=HTMLResponse)
-async def daily_report(request: Request, report_date: str, db: Session = Depends(get_db)):
-    user = get_current_user(request, db)
-
-    try:
-        parsed_date = datetime.strptime(report_date, "%Y-%m-%d").date()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="日期格式错误")
-
-    report = db.query(DailyReport).filter(DailyReport.report_date == parsed_date).first()
-    slots = db.query(SlotRun).filter(SlotRun.run_date == parsed_date).all()
-
-    day_start = datetime.combine(parsed_date, datetime.min.time())
-    day_end = datetime.combine(parsed_date + timedelta(days=1), datetime.min.time())
-
-    analyses = db.query(AnalysisResult).join(ContentItem).filter(
-        and_(
-            ContentItem.published_at >= day_start,
-            ContentItem.published_at < day_end,
-        )
-    ).order_by(desc(AnalysisResult.score)).all()
-
-    threshold = get_setting_value(db, "push_score_threshold", 60)
-    opportunities = [a for a in analyses if a.has_opportunity and a.score >= threshold]
-
-    return templates.TemplateResponse(request, "pages/daily.html", {
-        "request": request,
-        "user": user,
-        "report_date": parsed_date,
-        "prev_date": (parsed_date - timedelta(days=1)).isoformat(),
-        "next_date": (parsed_date + timedelta(days=1)).isoformat(),
-        "report": report,
-        "slots": slots,
-        "analyses": analyses,
-        "opportunities": opportunities,
-        "threshold": threshold,
     })

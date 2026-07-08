@@ -9,13 +9,21 @@ from datetime import datetime
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from src.app.domain.models import AnalysisResult, Base, ContentItem, PromptVersion
 
 
 @pytest.fixture()
 def db_session():
-    engine = create_engine("sqlite:///:memory:")
+    # StaticPool + check_same_thread=False: FastAPI TestClient 在独立线程里跑同步
+    # 路由处理函数，这里要保证所有线程复用同一个内存 sqlite 连接，而不是各开各的
+    # （否则每个线程会看到一个空的、没建表的新内存库）。
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
     session = session_factory()

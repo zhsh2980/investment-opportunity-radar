@@ -67,9 +67,6 @@
             <!-- Desktop Menu -->
             <div class="hidden md:flex items-center gap-1">
                 <a href="/" class="nav-item {% if request.url.path == '/' %}active{% endif %}">首页</a>
-                <a href="/daily/{{ today or '' }}"
-                    class="nav-item {% if '/daily/' in request.url.path %}active{% endif %}">今日日报</a>
-                <a href="/history" class="nav-item {% if request.url.path == '/history' %}active{% endif %}">历史</a>
                 <a href="/prompts" class="nav-item {% if request.url.path == '/prompts' %}active{% endif %}">Prompts</a>
                 <a href="/settings" class="nav-item {% if request.url.path == '/settings' %}active{% endif %}">设置</a>
             </div>
@@ -132,16 +129,6 @@
                     class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
                     <span class="text-xl">🏠</span>
                     <span class="font-medium text-slate-700">首页</span>
-                </a>
-                <a href="/daily/{{ today or '' }}"
-                    class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
-                    <span class="text-xl">📰</span>
-                    <span class="font-medium text-slate-700">今日日报</span>
-                </a>
-                <a href="/history"
-                    class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
-                    <span class="text-xl">📜</span>
-                    <span class="font-medium text-slate-700">历史</span>
                 </a>
                 <a href="/prompts"
                     class="mobile-nav-item flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">

@@ -11,7 +11,7 @@
 </div>
 
 <!-- 筛选 -->
-<form class="ds-card filter-bar" method="get" action="/history">
+<form class="ds-card filter-bar" method="get" action="/">
     <input class="ds-input" style="max-width:220px" type="text" name="keyword" placeholder="标题 / 公众号关键词" value="{{ keyword }}">
     <input class="ds-input" style="max-width:150px" type="date" name="start_date" value="{{ start_date }}">
     <span class="filter-label">至</span>
@@ -36,7 +36,7 @@
     <div class="tl-date-anchor">
         {{ day.label }}
         {% if day.report %}
-        · <a href="/daily/{{ day.date }}">查看当日日报</a>
+        · <span class="tl-report-marker">已生成日报（钉钉查看）</span>
         {% endif %}
     </div>
     {% for a in day.entries %}
