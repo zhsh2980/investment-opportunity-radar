@@ -259,6 +259,9 @@ def check_source_health(session: Session, failures: Dict[str, str]) -> None:
     for mp_name, latest in rows:
         if latest is None:
             continue
+        if latest.tzinfo is not None:
+            # DB 返回带时区时间，统一转为本地 naive 再比较
+            latest = latest.astimezone().replace(tzinfo=None)
         hours = (now - latest).total_seconds() / 3600
         if hours >= COLUMN_STALE_HOURS:
             last_alert = stale_state.get(mp_name)
