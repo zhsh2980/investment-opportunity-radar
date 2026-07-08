@@ -241,13 +241,28 @@ async def system_page(request: Request, db: Session = Depends(get_db)):
             ContentItem.mp_name,
             func.max(ContentItem.published_at).label("latest"),
             func.sum(case((ContentItem.published_at >= week_ago, 1), else_=0)).label("week_count"),
-            func.max(ContentItem.source_category).label("category"),
         )
         .group_by(ContentItem.mp_name)
         .all()
     )
+
+    # 分类取每个来源"最近一次入库"文章的 category（而非 MAX 聚合——
+    # source_category 是字符串，MAX 会按字母序取 "opportunity" > "broad"，
+    # 一旦历史上出现过任何一条旧数据（如迁移回填的默认值），会永久错误
+    # 显示为机会类，即使之后新入库的文章都已经正确标为宽泛类）
+    latest_ids_per_source = (
+        db.query(func.max(ContentItem.id))
+        .group_by(ContentItem.mp_name)
+        .subquery()
+    )
+    category_by_name = dict(
+        db.query(ContentItem.mp_name, ContentItem.source_category)
+        .filter(ContentItem.id.in_(db.query(latest_ids_per_source)))
+        .all()
+    )
+
     sources = []
-    for name, latest, week_count, category in rows:
+    for name, latest, week_count in rows:
         latest_naive = as_naive(latest)
         if latest_naive and latest_naive > now - timedelta(hours=48):
             health = "ok"
@@ -260,7 +275,7 @@ async def system_page(request: Request, db: Session = Depends(get_db)):
             "latest_label": humanize_ago(latest),
             "week_count": int(week_count or 0),
             "health": health,
-            "category": category or "opportunity",
+            "category": category_by_name.get(name, "opportunity"),
         })
     sources.sort(key=lambda s: s["name"])
 

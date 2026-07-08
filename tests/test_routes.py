@@ -89,6 +89,21 @@ def test_system_page_still_requires_login_and_renders(logged_in_client):
     assert "系统设置" in resp.text
 
 
+def test_system_page_shows_latest_category_not_max_string(
+    logged_in_client, make_content_item
+):
+    # 同一来源先有一条旧数据被标为 opportunity（如迁移回填的默认值，id 较小），
+    # 后有一条新入库的文章正确标为 broad（id 较大）。
+    # 用字符串 MAX 聚合会错误地永久显示为 opportunity（'o' > 'b'）；
+    # 正确做法是以"最近一次入库"（id 最大）的分类为准。
+    make_content_item(mp_name="猫笔刀", source_category="opportunity")
+    make_content_item(mp_name="猫笔刀", source_category="broad")
+
+    resp = logged_in_client.get("/system", follow_redirects=False)
+    assert resp.status_code == 200
+    assert "宽泛类" in resp.text
+
+
 def test_legacy_settings_redirects_still_work(client):
     for path in ("/prompts", "/settings", "/health"):
         resp = client.get(path, follow_redirects=False)
