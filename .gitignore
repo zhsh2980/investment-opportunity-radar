@@ -8,6 +8,9 @@ scripts/deploy.sh
 # 本地预览产物
 preview/
 
+# 本地 issue 跟踪（仓库公开，issue 留本地）
+.scratch/
+
 # 系统文件
 .DS_Store
 *.swp
