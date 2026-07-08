@@ -99,8 +99,9 @@ class ContentItem(Base):
         Index("idx_content_analyzed_status", "analyzed_status", "published_at"),
     )
     
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(SqliteAutoIncrementBigInteger, primary_key=True)
     source_type: Mapped[str] = mapped_column(String(32), default="jtks", nullable=False)  # jtks=今天看啥, werss=历史数据
+    source_category: Mapped[str] = mapped_column(String(16), default="opportunity", nullable=False)  # opportunity=机会类, broad=宽泛类, 决定推送策略
     source_id: Mapped[str] = mapped_column(String(64), default="default", nullable=False)
     external_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)  # 今天看啥 /t/{id} 的 id
     mp_id: Mapped[Optional[str]] = mapped_column(String(255))

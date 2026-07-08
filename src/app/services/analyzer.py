@@ -9,7 +9,7 @@
 """
 import json
 import hashlib
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any, Tuple
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
@@ -185,6 +185,7 @@ def fetch_and_save_articles(
         # 创建记录
         item = ContentItem(
             source_type="jtks",
+            source_category=article.get("category", "opportunity"),
             source_id=article["column_id"],
             external_id=external_id,
             mp_id=article["column_id"],
@@ -240,7 +241,8 @@ def check_source_health(session: Session, failures: Dict[str, str]) -> None:
 
     # 1. feed 连续失败计数
     settings = get_settings()
-    for feed_url in settings.jtks_feeds:
+    for feed in settings.jtks_feeds:
+        feed_url = feed.url
         key = feed_url[-24:]  # 用尾部 token 片段做 key，避免整条 URL 入库
         state = dict(feed_state.get(key, {"fail_count": 0, "alerted": False}))
         if feed_url in failures:
@@ -406,31 +408,28 @@ def should_push_opportunity(
     slot: str,
 ) -> bool:
     """
-    判断是否应该推送机会提醒
-    
-    规则（按文档）：
-    - 每天前 4 次 slot（不含 22:00）命中阈值才推
+    判断是否应该立即推送机会简报
+
+    规则：
     - 22:00 只推日报，不推单独机会
+    - 机会类信息源：达 push_score_threshold 即推
+    - 宽泛类信息源：达 broad_category_override_score（更高的破例线）才推，
+      否则留给日报汇总
+    - 不设每日推送条数上限
     """
     if slot == "22:00":
         return False
-    
-    threshold = get_setting_value(session, "push_score_threshold", 60)
-    
-    if analysis.score < threshold:
-        return False
-    
+
     if not analysis.has_opportunity:
         return False
-    
-    # 检查当天已推送次数（排除 22:00 slot）
-    today_pushes = session.query(NotificationLog).filter(
-        NotificationLog.report_date == run_date,
-        NotificationLog.push_type == "opportunity",
-        NotificationLog.status == 1,  # 成功
-    ).count()
-    
-    return today_pushes < 4
+
+    category = analysis.content_item.source_category
+    if category == "broad":
+        threshold = get_setting_value(session, "broad_category_override_score", 80)
+    else:
+        threshold = get_setting_value(session, "push_score_threshold", 60)
+
+    return analysis.score >= threshold
 
 
 def push_opportunity_alert(
@@ -440,38 +439,38 @@ def push_opportunity_alert(
     slot: str,
     base_url: str,
 ) -> bool:
-    """推送机会提醒到钉钉"""
+    """推送机会简报到钉钉（要点 + 仅原文链接，不再链接系统详情页）"""
     dingtalk = get_dingtalk_client()
-    
+
     content_item = analysis.content_item
-    
+
     # 获取主要机会类型
     opp_types = analysis.result_json.get("opportunity_types", [])
     top_type = opp_types[0] if opp_types else "other"
     top_type_name = OPPORTUNITY_TYPES.get(top_type, top_type)
-    
+    key_points = analysis.result_json.get("key_points", [])
+
     # 生成幂等 key
     msg_uuid = hashlib.sha1(
         f"{run_date}:{slot}:opportunity:{analysis.id}".encode()
     ).hexdigest()
-    
+
     try:
         result = dingtalk.send_opportunity_alert(
-            analysis_id=analysis.id,
-            title=content_item.title,
             mp_name=content_item.mp_name or "未知公众号",
             score=analysis.score,
-            summary=analysis.summary_md[:200],
             opportunity_type=top_type_name,
-            base_url=base_url,
+            key_points=key_points,
+            article_url=content_item.url or "",
             msg_uuid=msg_uuid,
         )
-        
+
         success = result.get("errcode") == 0
-        
-        # 记录推送日志
+
+        # 记录推送日志（target_url 保留系统详情页地址供后台核对用，钉钉消息本身不再链接它）
+        # report_date 是 Date 列，需要真正的 date 对象；Postgres 曾容忍字符串，SQLite 不容忍
         log = NotificationLog(
-            report_date=run_date,
+            report_date=date.fromisoformat(run_date),
             slot=slot,
             push_type="opportunity",
             msg_uuid=msg_uuid,
@@ -484,9 +483,9 @@ def push_opportunity_alert(
         )
         session.add(log)
         session.commit()
-        
+
         return success
-        
+
     except Exception as e:
         logger.error(f"推送机会提醒失败: {e}")
         return False
@@ -535,9 +534,9 @@ def push_manual_summary(
         
         success = result.get("errcode") == 0
         
-        # 记录推送日志
+        # 记录推送日志（report_date 是 Date 列，需要真正的 date 对象）
         log = NotificationLog(
-            report_date=run_date,
+            report_date=date.fromisoformat(run_date),
             slot=slot,
             push_type="manual_summary",
             msg_uuid=msg_uuid,

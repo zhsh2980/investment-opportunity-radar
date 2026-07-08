@@ -20,6 +20,8 @@
             <div class="sys-row">
                 <span class="k">
                     <span class="health-dot {{ s.health }}"></span>{{ s.name }}
+                    {% if s.category == 'broad' %}<span class="ds-tag ds-tag-neutral" style="margin-left:6px">宽泛类</span>
+                    {% else %}<span class="ds-tag" style="margin-left:6px">机会类</span>{% endif %}
                 </span>
                 <span class="v">
                     最新文章 {{ s.latest_label }}<br>
@@ -70,6 +72,10 @@
                 <div style="margin-bottom:var(--space-4)">
                     <label class="ds-label">临期阈值小时数</label>
                     <input class="ds-input" type="number" min="1" max="168" data-key="urgent_hours" value="{{ settings.urgent_hours }}">
+                </div>
+                <div style="margin-bottom:var(--space-4)">
+                    <label class="ds-label">宽泛类信息源破例推送分数线 (0-100)</label>
+                    <input class="ds-input" type="number" min="0" max="100" data-key="broad_category_override_score" value="{{ settings.broad_category_override_score }}">
                 </div>
                 <button class="ds-btn ds-btn-primary" onclick="saveSettings(this)">保存设置</button>
             </form>

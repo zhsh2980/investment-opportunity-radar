@@ -66,6 +66,7 @@ class SettingsUpdate(BaseModel):
     window_days: Optional[int] = None
     schedule_slots: Optional[List[str]] = None
     urgent_hours: Optional[int] = None
+    broad_category_override_score: Optional[int] = None
 
 
 @router.post("/settings")
@@ -144,6 +145,7 @@ async def get_settings(request: Request, db: Session = Depends(get_db)):
         "push_score_threshold": 60,
         "remember_me_days": 30,
         "window_days": 3,
+        "broad_category_override_score": 80,
     }
     
     for key, default in default_settings.items():
@@ -717,7 +719,7 @@ async def get_system_status(request: Request, db: Session = Depends(get_db)):
         if not client.feeds:
             status["jtks"] = {"status": "error", "message": "未配置 JTKS_FEEDS"}
         else:
-            articles = client.fetch_feed(client.feeds[0])
+            articles = client.fetch_feed(client.feeds[0].url)
             status["jtks"] = {"status": "ok", "message": f"连接正常 ({len(articles)} 篇)"}
     except Exception as e:
         error_msg = str(e)
@@ -898,7 +900,7 @@ async def get_health_detail(request: Request, db: Session = Depends(get_db)):
                 "icon": "rss"
             })
         else:
-            articles = client.fetch_feed(client.feeds[0])
+            client.fetch_feed(client.feeds[0].url)
             status["services"].append({
                 "name": "今天看啥 RSS",
                 "status": "ok",

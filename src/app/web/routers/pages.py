@@ -241,12 +241,13 @@ async def system_page(request: Request, db: Session = Depends(get_db)):
             ContentItem.mp_name,
             func.max(ContentItem.published_at).label("latest"),
             func.sum(case((ContentItem.published_at >= week_ago, 1), else_=0)).label("week_count"),
+            func.max(ContentItem.source_category).label("category"),
         )
         .group_by(ContentItem.mp_name)
         .all()
     )
     sources = []
-    for name, latest, week_count in rows:
+    for name, latest, week_count, category in rows:
         latest_naive = as_naive(latest)
         if latest_naive and latest_naive > now - timedelta(hours=48):
             health = "ok"
@@ -259,6 +260,7 @@ async def system_page(request: Request, db: Session = Depends(get_db)):
             "latest_label": humanize_ago(latest),
             "week_count": int(week_count or 0),
             "health": health,
+            "category": category or "opportunity",
         })
     sources.sort(key=lambda s: s["name"])
 
@@ -275,6 +277,7 @@ async def system_page(request: Request, db: Session = Depends(get_db)):
         "window_days": get_setting_value(db, "window_days", 3),
         "schedule_slots": schedule_slots,
         "urgent_hours": get_setting_value(db, "urgent_hours", 48),
+        "broad_category_override_score": get_setting_value(db, "broad_category_override_score", 80),
     }
 
     prompts = db.query(PromptVersion).order_by(PromptVersion.name, desc(PromptVersion.version)).all()

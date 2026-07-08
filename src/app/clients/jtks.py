@@ -14,7 +14,7 @@ from typing import Any, Dict, List
 import feedparser
 import httpx
 
-from ..config import get_settings
+from ..config import JTKSFeedConfig, get_settings
 from ..logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -29,7 +29,7 @@ class JTKSFeedError(Exception):
 class JTKSClient:
     """今天看啥 RSS 客户端"""
 
-    def __init__(self, feeds: List[str] | None = None):
+    def __init__(self, feeds: List[JTKSFeedConfig] | None = None):
         settings = get_settings()
         self.feeds = feeds if feeds is not None else settings.jtks_feeds
         self.timeout = 30.0
@@ -95,22 +95,24 @@ class JTKSClient:
 
     def fetch_all(self) -> tuple[List[Dict[str, Any]], Dict[str, str]]:
         """
-        拉取全部专栏 feed。
+        拉取全部专栏 feed，每篇文章附带其所属 feed 的推送分类（category）。
 
         Returns:
             (文章列表, 失败的 feed 映射 {feed_url: 错误信息})
         """
         all_articles: List[Dict[str, Any]] = []
         failures: Dict[str, str] = {}
-        for feed_url in self.feeds:
+        for feed in self.feeds:
             try:
-                articles = self.fetch_feed(feed_url)
+                articles = self.fetch_feed(feed.url)
+                for article in articles:
+                    article["category"] = feed.category
                 all_articles.extend(articles)
-                name = articles[0]["column_name"] if articles else feed_url
+                name = articles[0]["column_name"] if articles else feed.url
                 logger.info(f"拉取专栏 feed 成功: {name}, {len(articles)} 篇")
             except JTKSFeedError as e:
-                logger.error(f"拉取专栏 feed 失败: {feed_url[:60]}..., {e}")
-                failures[feed_url] = str(e)
+                logger.error(f"拉取专栏 feed 失败: {feed.url[:60]}..., {e}")
+                failures[feed.url] = str(e)
         return all_articles, failures
 
 

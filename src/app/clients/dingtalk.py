@@ -6,12 +6,13 @@
 - 支持 Markdown 消息格式
 - 幂等推送（msgUuid）
 """
-import time
-import hmac
-import hashlib
 import base64
+import hashlib
+import hmac
+import time
 import urllib.parse
-from typing import Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
 import httpx
 
 from ..config import get_settings
@@ -22,17 +23,17 @@ logger = get_logger(__name__)
 
 class DingTalkClient:
     """钉钉机器人 API 客户端"""
-    
+
     ENDPOINT = "https://oapi.dingtalk.com/robot/send"
-    
+
     def __init__(self):
         settings = get_settings()
         self.webhook = settings.dingtalk_webhook
         self.secret = settings.dingtalk_secret
-        
+
         # HTTP 客户端
         self._client = httpx.Client(timeout=30.0)
-    
+
     def _sign(self, timestamp: int) -> str:
         """
         生成加签签名
@@ -53,19 +54,19 @@ class DingTalkClient:
         ).digest()
         sign = urllib.parse.quote_plus(base64.b64encode(hmac_code))
         return sign
-    
+
     def _get_signed_url(self) -> str:
         """获取带签名的 webhook URL"""
         if not self.secret:
             return self.webhook
-        
+
         timestamp = int(round(time.time() * 1000))
         sign = self._sign(timestamp)
-        
+
         # webhook 已经包含 access_token，需要追加 timestamp 和 sign
         separator = "&" if "?" in self.webhook else "?"
         return f"{self.webhook}{separator}timestamp={timestamp}&sign={sign}"
-    
+
     def send_markdown(
         self,
         title: str,
@@ -88,7 +89,7 @@ class DingTalkClient:
             钉钉 API 响应
         """
         url = self._get_signed_url()
-        
+
         payload = {
             "msgtype": "markdown",
             "markdown": {
@@ -96,31 +97,31 @@ class DingTalkClient:
                 "text": text,
             },
         }
-        
+
         # 幂等 key
         if msg_uuid:
             payload["msgUuid"] = msg_uuid
-        
+
         # @人
         at_config = {"isAtAll": at_all}
         if at_mobiles:
             at_config["atMobiles"] = at_mobiles
         payload["at"] = at_config
-        
+
         logger.info(f"钉钉推送: title='{title}', uuid={msg_uuid}")
-        
+
         response = self._client.post(url, json=payload)
         response.raise_for_status()
-        
+
         result = response.json()
-        
+
         if result.get("errcode") != 0:
             logger.error(f"钉钉推送失败: {result}")
         else:
             logger.info("钉钉推送成功")
-        
+
         return result
-    
+
     def send_text(
         self,
         content: str,
@@ -141,84 +142,72 @@ class DingTalkClient:
             钉钉 API 响应
         """
         url = self._get_signed_url()
-        
+
         payload = {
             "msgtype": "text",
             "text": {
                 "content": content,
             },
         }
-        
+
         if msg_uuid:
             payload["msgUuid"] = msg_uuid
-        
+
         at_config = {"isAtAll": at_all}
         if at_mobiles:
             at_config["atMobiles"] = at_mobiles
         payload["at"] = at_config
-        
+
         logger.info(f"钉钉推送文本: {content[:50]}...")
-        
+
         response = self._client.post(url, json=payload)
         response.raise_for_status()
-        
+
         result = response.json()
-        
+
         if result.get("errcode") != 0:
             logger.error(f"钉钉推送失败: {result}")
-        
+
         return result
-    
+
     def send_opportunity_alert(
         self,
-        analysis_id: int,
-        title: str,
         mp_name: str,
         score: int,
-        summary: str,
         opportunity_type: str,
-        base_url: str,
+        key_points: List[str],
+        article_url: str,
         msg_uuid: str,
     ) -> Dict[str, Any]:
         """
-        发送机会提醒（前 4 次命中阈值）
-        
+        发送机会简报：标题行 + 要点列表 + 仅一个原文链接
+
         Args:
-            analysis_id: 分析 ID
-            title: 文章标题
             mp_name: 公众号名称
             score: 评分
-            summary: 摘要
             opportunity_type: 机会类型
-            base_url: 系统基础 URL
+            key_points: AI 输出的要点列表
+            article_url: 公众号原文链接（为空时退化为无链接的纯文本）
             msg_uuid: 幂等 key
-        
+
         Returns:
             钉钉 API 响应
         """
-        detail_url = f"{base_url}/analysis/{analysis_id}"
-        
-        text = f"""### 🎯 发现投资机会！
+        heading = f"🎯 {opportunity_type} · {score}分 · {mp_name}"
+        points_md = "\n".join(f"- {p}" for p in key_points) if key_points else "（无要点）"
+        link_md = f"\n\n[查看原文]({article_url})" if article_url else ""
 
-**评分**: {score}分
+        text = f"""### {heading}
 
-**来源**: {mp_name}
-
-**标题**: {title}
-
-**类型**: {opportunity_type}
-
-**摘要**: {summary}
-
-[👉 查看详情]({detail_url})
+{points_md}{link_md}
 """
-        
+
         return self.send_markdown(
-            title=f"🎯 投资机会 [{score}分]",
+            title=heading,
             text=text,
             msg_uuid=msg_uuid,
         )
-    
+
     def send_daily_report(
         self,
         date: str,
@@ -245,10 +234,10 @@ class DingTalkClient:
             钉钉 API 响应
         """
         report_url = f"{base_url}/daily/{date}"
-        
+
         status_emoji = "✅" if has_opportunity else "📭"
         status_text = "发现机会" if has_opportunity else "暂无机会"
-        
+
         text = f"""### 📊 {date} 日报
 
 **状态**: {status_emoji} {status_text}
@@ -263,20 +252,20 @@ class DingTalkClient:
 
 [👉 查看完整日报]({report_url})
 """
-        
+
         return self.send_markdown(
             title=f"📊 {date} 日报 - {status_text}",
             text=text,
             msg_uuid=msg_uuid,
         )
-    
+
     def close(self):
         """关闭客户端"""
         self._client.close()
-    
+
     def __enter__(self):
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
