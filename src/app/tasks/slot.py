@@ -228,6 +228,12 @@ def execute_slot(slot: str, manual: bool = False):
                     else:
                         stats["articles_failed"] += 1
                 except Exception as e:
+                    # 必须先回滚再做任何事：失败可能发生在 flush/commit 中途，
+                    # session 已进入 PendingRollback 状态且对象已被 expire——
+                    # 此时连 item.title 这样的属性访问都会触发懒加载再次抛错。
+                    # 不回滚的话后续所有 DB 操作（其余文章的分析、日报、
+                    # 标记批次失败）都会连环失败，批次永远卡在"运行中"
+                    session.rollback()
                     logger.error(f"分析文章失败: {item.title[:30]}, {e}")
                     stats["articles_failed"] += 1
             
@@ -275,6 +281,9 @@ def execute_slot(slot: str, manual: bool = False):
             
         except Exception as e:
             logger.error(f"slot 执行失败: {e}")
+            # session 可能已被之前的异常毒化，先回滚才能写入失败状态；
+            # 否则这里的 commit 也会抛 PendingRollbackError，批次永远停在"运行中"
+            session.rollback()
             slot_run.status = 2  # 失败
             slot_run.error = str(e)
             slot_run.finished_at = datetime.utcnow()

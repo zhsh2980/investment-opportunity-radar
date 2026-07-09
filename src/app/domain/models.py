@@ -75,7 +75,7 @@ class SlotRun(Base):
         UniqueConstraint("run_date", "slot", name="uq_slot_run_date_slot"),
     )
     
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(SqliteAutoIncrementBigInteger, primary_key=True)
     run_date: Mapped[date] = mapped_column(Date, nullable=False)
     slot: Mapped[str] = mapped_column(String(5), nullable=False)  # 07:00 / 12:00 / 14:00 / 18:00 / 22:00
     window_start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
