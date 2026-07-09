@@ -29,9 +29,11 @@ class Settings(BaseSettings):
     jtks_feeds: list[JTKSFeedConfig] = []
 
     # DeepSeek
+    # deepseek-v4-pro 默认思考模式，是当前最强推理档；旧别名 deepseek-reasoner
+    # （V4-Flash 思考模式）将于 2026-07-24 弃用，不要再用
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com"
-    deepseek_model: str = "deepseek-reasoner"
+    deepseek_model: str = "deepseek-v4-pro"
 
     # 钉钉
     dingtalk_webhook: str = ""

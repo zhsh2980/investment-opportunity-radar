@@ -45,6 +45,7 @@ services:
       - JTKS_FEEDS=${JTKS_FEEDS:-[]}
       - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://radar.codexcc.cc}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-v4-pro}
       - DINGTALK_WEBHOOK=${DINGTALK_WEBHOOK}
       - DINGTALK_SECRET=${DINGTALK_SECRET}
       - FEISHU_APP_ID=${FEISHU_APP_ID}
@@ -77,6 +78,7 @@ services:
       - JTKS_FEEDS=${JTKS_FEEDS:-[]}
       - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://radar.codexcc.cc}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-v4-pro}
       - DINGTALK_WEBHOOK=${DINGTALK_WEBHOOK}
       - DINGTALK_SECRET=${DINGTALK_SECRET}
       - FEISHU_APP_ID=${FEISHU_APP_ID}
