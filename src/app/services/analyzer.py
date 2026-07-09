@@ -11,6 +11,7 @@ import json
 import hashlib
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any, Tuple
+from zoneinfo import ZoneInfo
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
 
@@ -443,6 +444,23 @@ def should_push_opportunity(
     return analysis.score >= threshold
 
 
+# 数据库里 published_at 存的是 UTC，展示给用户前统一转北京时间
+_CN_TZ = ZoneInfo("Asia/Shanghai")
+
+
+def format_publish_time(published_at: Optional[datetime]) -> str:
+    """把文章发布时间格式化为北京时间 MM-DD HH:MM；空值返回空串。
+
+    数据库 timestamptz 读出来带 UTC 时区（tzinfo 非空），转北京时间再格式化；
+    测试里构造的 naive datetime 视为已是本地时间，直接格式化。
+    """
+    if published_at is None:
+        return ""
+    if published_at.tzinfo is not None:
+        published_at = published_at.astimezone(_CN_TZ)
+    return published_at.strftime("%m-%d %H:%M")
+
+
 def push_opportunity_alert(
     session: Session,
     analysis: AnalysisResult,
@@ -465,6 +483,7 @@ def push_opportunity_alert(
     key_points = analysis.result_json.get("key_points", [])
     mp_name = content_item.mp_name or "未知公众号"
     article_url = content_item.url or ""
+    publish_label = format_publish_time(content_item.published_at)
 
     # 生成幂等 key
     msg_uuid = hashlib.sha1(
@@ -481,6 +500,7 @@ def push_opportunity_alert(
             key_points=key_points,
             article_url=article_url,
             msg_uuid=msg_uuid,
+            publish_label=publish_label,
         ),
         success_field="errcode",
         channel_label="钉钉",
@@ -511,6 +531,7 @@ def push_opportunity_alert(
                 key_points=key_points,
                 article_url=article_url,
                 msg_uuid=feishu_msg_uuid,
+                publish_label=publish_label,
             ),
             success_field="code",
             channel_label="飞书",

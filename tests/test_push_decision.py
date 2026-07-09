@@ -5,9 +5,14 @@
 broad_category_override_score 才推；不设每日推送条数上限；22:00 从不
 推送单独机会（留给日报）。
 """
+from datetime import datetime, timezone
 from unittest.mock import patch
 
-from src.app.services.analyzer import push_opportunity_alert, should_push_opportunity
+from src.app.services.analyzer import (
+    format_publish_time,
+    push_opportunity_alert,
+    should_push_opportunity,
+)
 
 
 def _make_analysis(make_content_item, make_analysis_result, *, category, score):
@@ -130,3 +135,38 @@ def test_push_opportunity_alert_handles_empty_article_url(
     assert success is True
     _, kwargs = mock_send.call_args
     assert "[查看原文]" not in kwargs["text"]
+
+
+def test_format_publish_time_converts_utc_to_beijing():
+    # 数据库存的是 UTC，13:50 UTC = 北京时间 21:50
+    dt = datetime(2026, 7, 8, 13, 50, tzinfo=timezone.utc)
+    assert format_publish_time(dt) == "07-08 21:50"
+
+
+def test_format_publish_time_handles_none():
+    assert format_publish_time(None) == ""
+
+
+def test_push_opportunity_alert_shows_publish_time_in_beijing(
+    db_session, make_content_item, make_analysis_result
+):
+    # 文章发布于 07-08 13:50 UTC（存库形态），卡片里应显示北京时间 07-08 21:50
+    item = make_content_item(
+        published_at=datetime(2026, 7, 8, 13, 50, tzinfo=timezone.utc),
+        url="https://mp.weixin.qq.com/s/x",
+    )
+    analysis = make_analysis_result(item, score=85, has_opportunity=True)
+
+    with patch(
+        "src.app.clients.dingtalk.DingTalkClient.send_markdown",
+        return_value={"errcode": 0},
+    ) as mock_send:
+        push_opportunity_alert(
+            session=db_session, analysis=analysis, run_date="2026-07-09",
+            slot="12:00", base_url="https://radar.codexcc.cc",
+        )
+
+    text = mock_send.call_args.kwargs["text"]
+    assert "🕐 发布于 07-08 21:50" in text
+    # 发布时间行在标题之后、第一条要点之前
+    assert text.index("发布于") < text.index("- ")

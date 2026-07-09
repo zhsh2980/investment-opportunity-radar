@@ -178,6 +178,7 @@ class DingTalkClient:
         key_points: List[str],
         article_url: str,
         msg_uuid: str,
+        publish_label: str = "",
     ) -> Dict[str, Any]:
         """
         发送机会简报：标题行 + 要点列表 + 仅一个原文链接
@@ -194,12 +195,13 @@ class DingTalkClient:
             钉钉 API 响应
         """
         heading = f"🎯 {opportunity_type} · {score}分 · {mp_name}"
+        meta_md = f"🕐 发布于 {publish_label}\n\n" if publish_label else ""
         points_md = "\n".join(f"- {p}" for p in key_points) if key_points else "（无要点）"
         link_md = f"\n\n[查看原文]({article_url})" if article_url else ""
 
         text = f"""### {heading}
 
-{points_md}{link_md}
+{meta_md}{points_md}{link_md}
 """
 
         return self.send_markdown(
