@@ -6,9 +6,12 @@
 表为空时，分析结果入库直接违反 NOT NULL 约束，且毒化 session 导致整个
 批次卡死、日报停发。
 
-Revision ID: 005_analysis_prompt_version_nullable
+Revision ID: 005_prompt_version_nullable
 Revises: 004_content_item_source_category
 Create Date: 2026-07-09
+
+注意：revision 字符串必须 ≤32 字符（alembic_version.version_num 是
+varchar(32)，004 恰好 32 字符压线通过，更长会在 UPDATE 版本号时截断报错）。
 
 """
 from typing import Sequence, Union
@@ -17,7 +20,7 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "005_analysis_prompt_version_nullable"
+revision: str = "005_prompt_version_nullable"
 down_revision: Union[str, None] = "004_content_item_source_category"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
