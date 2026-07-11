@@ -23,6 +23,7 @@ from ..core.prompts import (
     OPPORTUNITY_ANALYZER_SYSTEM_PROMPT,
     OPPORTUNITY_ANALYZER_USER_TEMPLATE,
     OPPORTUNITY_TYPES,
+    opportunity_type_label,
 )
 from ..domain.models import (
     ContentItem,
@@ -479,7 +480,7 @@ def push_opportunity_alert(
     # 获取主要机会类型
     opp_types = analysis.result_json.get("opportunity_types", [])
     top_type = opp_types[0] if opp_types else "other"
-    top_type_name = OPPORTUNITY_TYPES.get(top_type, top_type)
+    top_type_name = opportunity_type_label(top_type)
     key_points = analysis.result_json.get("key_points", [])
     mp_name = content_item.mp_name or "未知公众号"
     article_url = content_item.url or ""
