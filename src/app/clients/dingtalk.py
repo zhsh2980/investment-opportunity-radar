@@ -220,7 +220,7 @@ class DingTalkClient:
         msg_uuid: str,
     ) -> Dict[str, Any]:
         """
-        发送每日日报（22:00 必推，纯钉钉消息，不链接系统内任何页面）
+        发送每日日报（每天最后一个批次必推，纯钉钉消息，不链接系统内任何页面）
 
         Args:
             date: 日期 YYYY-MM-DD

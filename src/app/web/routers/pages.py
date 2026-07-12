@@ -281,7 +281,7 @@ async def system_page(request: Request, db: Session = Depends(get_db)):
 
     # 今日批次
     today = date.today()
-    schedule_slots = get_setting_value(db, "schedule_slots", ["07:00", "12:00", "14:00", "18:00", "22:00"])
+    schedule_slots = get_setting_value(db, "schedule_slots", ["07:00", "12:00", "14:00", "18:00", "22:30"])
     slots_status = {s: {"status": "pending"} for s in schedule_slots}
     for run in db.query(SlotRun).filter(SlotRun.run_date == today).all():
         st = {0: "running", 1: "success", 2: "failed"}.get(run.status, "pending")

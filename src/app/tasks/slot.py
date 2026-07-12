@@ -29,6 +29,7 @@ from ..services.analyzer import (
     analyze_article,
     get_active_prompt,
     get_setting_value,
+    is_last_slot_of_day,
     should_push_opportunity,
     push_opportunity_alert,
     generate_msg_uuid,
@@ -78,33 +79,6 @@ def get_or_create_slot_run(session, run_date: date, slot: str) -> tuple[SlotRun,
     session.commit()
     
     return slot_run, True
-
-
-def is_last_slot_of_day(session, current_slot: str) -> bool:
-    """
-    判断当前 slot 是否为当天最后一个时间点
-    
-    从数据库读取 schedule_slots 配置，按时间排序后判断
-    """
-    from ..domain.models import Settings
-    
-    # 默认值
-    default_slots = ["07:00", "12:00", "14:00", "18:00", "22:00"]
-    
-    # 从数据库读取
-    setting = session.query(Settings).filter(Settings.key == "schedule_slots").first()
-    if setting and setting.value_json:
-        slots = setting.value_json
-    else:
-        slots = default_slots
-    
-    # 按时间排序
-    sorted_slots = sorted(slots)
-    
-    # 判断是否为最后一个
-    if sorted_slots:
-        return current_slot == sorted_slots[-1]
-    return False
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=60)

@@ -390,6 +390,16 @@ def analyze_article(
     return analysis
 
 
+DEFAULT_SCHEDULE_SLOTS = ["07:00", "12:00", "14:00", "18:00", "22:30"]
+
+
+def is_last_slot_of_day(session: Session, current_slot: str) -> bool:
+    """判断当前 slot 是否为当天最后一个批次（从 schedule_slots 配置动态判断）"""
+    slots = get_setting_value(session, "schedule_slots", DEFAULT_SCHEDULE_SLOTS)
+    sorted_slots = sorted(slots)
+    return bool(sorted_slots) and current_slot == sorted_slots[-1]
+
+
 def should_push_opportunity(
     session: Session,
     analysis: AnalysisResult,
@@ -400,13 +410,14 @@ def should_push_opportunity(
     判断是否应该立即推送机会简报
 
     规则：
-    - 22:00 只推日报，不推单独机会
+    - 当天最后一个批次只推日报，不推单独机会（按 schedule_slots 动态判断，
+      不硬编码具体时刻——批次时间可在系统设置里调整）
     - 机会类信息源：达 push_score_threshold 即推
     - 宽泛类信息源：达 broad_category_override_score（更高的破例线）才推，
       否则留给日报汇总
     - 不设每日推送条数上限
     """
-    if slot == "22:00":
+    if is_last_slot_of_day(session, slot):
         return False
 
     if not analysis.has_opportunity:

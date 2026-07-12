@@ -26,7 +26,7 @@ def get_schedule_slots_from_db():
     from ..database import SessionLocal
     from ..domain.models import Settings
     
-    default_slots = ["07:00", "12:00", "14:00", "18:00", "22:00"]
+    default_slots = ["07:00", "12:00", "14:00", "18:00", "22:30"]
     
     try:
         session = SessionLocal()

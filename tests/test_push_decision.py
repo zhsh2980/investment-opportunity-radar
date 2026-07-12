@@ -2,8 +2,8 @@
 信息源分类驱动的推送决策：should_push_opportunity / push_opportunity_alert。
 
 机会类信源命中 push_score_threshold 即推；宽泛类信源需达更高的
-broad_category_override_score 才推；不设每日推送条数上限；22:00 从不
-推送单独机会（留给日报）。
+broad_category_override_score 才推；不设每日推送条数上限；当天最后一个
+批次（按 schedule_slots 动态判断，默认 22:30）从不推送单独机会（留给日报）。
 """
 from datetime import datetime, timezone
 from unittest.mock import patch
@@ -67,13 +67,17 @@ def test_no_daily_push_cap(db_session, make_content_item, make_analysis_result):
         assert should_push_opportunity(db_session, analysis, "2026-07-08", "12:00") is True
 
 
-def test_2200_slot_never_pushes_individual_opportunity(
+def test_last_slot_never_pushes_individual_opportunity(
     db_session, make_content_item, make_analysis_result
 ):
+    # 最后一个批次按 schedule_slots 动态判断（默认列表末位是 22:30），
+    # 不硬编码具体时刻——曾硬编码 "22:00"，调整批次时间后会失效
     analysis = _make_analysis(
         make_content_item, make_analysis_result, category="opportunity", score=99
     )
-    assert should_push_opportunity(db_session, analysis, "2026-07-08", "22:00") is False
+    assert should_push_opportunity(db_session, analysis, "2026-07-08", "22:30") is False
+    # 同一篇文章在非最后批次照常推送
+    assert should_push_opportunity(db_session, analysis, "2026-07-08", "18:00") is True
 
 
 def test_push_opportunity_alert_includes_key_points_and_single_link(
