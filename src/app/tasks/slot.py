@@ -341,6 +341,41 @@ def _build_grouped_digest_body(analyses, alerted_ids: set) -> str:
     return "\n\n".join(sections)
 
 
+# 日报信源状态行里标 ⚠️ 的无更新时长（只做视觉提示，不推独立告警——
+# 作者周末/节假日不更新是常态，独立告警误报太频繁，已降级到这里）
+SOURCE_STALE_WARN_HOURS = 48
+
+
+def _build_source_status_lines(session) -> str:
+    """各信源距上次更新的时长，作为日报尾部的常态信息"""
+    from sqlalchemy import func as sa_func
+
+    rows = (
+        session.query(ContentItem.mp_name, sa_func.max(ContentItem.published_at))
+        .filter(ContentItem.source_type == "jtks")
+        .group_by(ContentItem.mp_name)
+        .all()
+    )
+    if not rows:
+        return ""
+
+    now = datetime.now()
+    lines = ["**信源状态**"]
+    for mp_name, latest in sorted(rows, key=lambda r: r[0] or ""):
+        if latest is None:
+            continue
+        if latest.tzinfo is not None:
+            latest = latest.astimezone().replace(tzinfo=None)
+        hours = (now - latest).total_seconds() / 3600
+        if hours >= SOURCE_STALE_WARN_HOURS:
+            lines.append(f"· {mp_name}：已 {int(hours // 24)} 天无更新 ⚠️")
+        elif hours >= 24:
+            lines.append(f"· {mp_name}：1 天前有更新")
+        else:
+            lines.append(f"· {mp_name}：{max(int(hours), 1)} 小时前有更新")
+    return "\n".join(lines)
+
+
 def generate_and_push_daily_report(
     session,
     run_date: date,
@@ -375,6 +410,11 @@ def generate_and_push_daily_report(
         digest_md = _build_grouped_digest_body(today_analyses, alerted_ids)
     else:
         digest_md = "今日无新文章分析。"
+
+    # 尾部附各信源更新状态（替代已删除的"无新文章"独立告警）
+    source_status = _build_source_status_lines(session)
+    if source_status:
+        digest_md = f"{digest_md}\n\n---\n\n{source_status}"
 
     # 构建 compact 结构用于存储
     analyses_compact = []

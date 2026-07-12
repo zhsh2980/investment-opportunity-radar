@@ -224,25 +224,25 @@ def fetch_and_save_articles(
 
 # 数据源健康告警阈值
 FEED_FAIL_ALERT_THRESHOLD = 3      # feed 连续失败次数
-COLUMN_STALE_HOURS = 48            # 专栏无新文章告警阈值（小时）
-STALE_ALERT_INTERVAL_HOURS = 24    # 同一告警的最小间隔（小时）
 
 
 def check_source_health(session: Session, failures: Dict[str, str]) -> None:
     """
-    数据源健康检查，异常时钉钉告警：
-    1. 某个 feed 连续失败 >= FEED_FAIL_ALERT_THRESHOLD 次
-    2. 某专栏超过 COLUMN_STALE_HOURS 小时无新文章
+    数据源健康检查：某个 feed 连续失败 >= FEED_FAIL_ALERT_THRESHOLD 次时
+    钉钉+飞书告警（硬故障信号：token 失效/平台异常）。
     告警状态记录在 settings 表 key=jtks_feed_health。
+
+    注：曾有"专栏超过 48 小时无新文章"的独立告警，因为作者周末/节假日
+    不更新是常态、误报频繁，已降级为 22:00 日报尾部的信源状态行
+    （见 slot.py 的 _build_source_status_lines），不再单独推送。
     """
     now = datetime.now()
     health_setting = session.query(Settings).filter(Settings.key == "jtks_feed_health").first()
     health: Dict[str, Any] = dict(health_setting.value_json) if health_setting else {}
     feed_state: Dict[str, Any] = dict(health.get("feeds", {}))
-    stale_state: Dict[str, Any] = dict(health.get("stale_alerts", {}))
     alerts: List[str] = []
 
-    # 1. feed 连续失败计数
+    # feed 连续失败计数
     settings = get_settings()
     for feed in settings.jtks_feeds:
         feed_url = feed.url
@@ -259,32 +259,8 @@ def check_source_health(session: Session, failures: Dict[str, str]) -> None:
             state = {"fail_count": 0, "alerted": False}
         feed_state[key] = state
 
-    # 2. 专栏超时无新文章
-    from sqlalchemy import func as sa_func
-    rows = (
-        session.query(ContentItem.mp_name, sa_func.max(ContentItem.published_at))
-        .filter(ContentItem.source_type == "jtks")
-        .group_by(ContentItem.mp_name)
-        .all()
-    )
-    for mp_name, latest in rows:
-        if latest is None:
-            continue
-        if latest.tzinfo is not None:
-            # DB 返回带时区时间，统一转为本地 naive 再比较
-            latest = latest.astimezone().replace(tzinfo=None)
-        hours = (now - latest).total_seconds() / 3600
-        if hours >= COLUMN_STALE_HOURS:
-            last_alert = stale_state.get(mp_name)
-            last_alert_dt = datetime.fromisoformat(last_alert) if last_alert else None
-            if not last_alert_dt or (now - last_alert_dt).total_seconds() >= STALE_ALERT_INTERVAL_HOURS * 3600:
-                alerts.append(f"- 专栏「{mp_name}」已 {int(hours)} 小时无新文章")
-                stale_state[mp_name] = now.isoformat()
-        else:
-            stale_state.pop(mp_name, None)
-
     # 保存健康状态
-    new_value = {"feeds": feed_state, "stale_alerts": stale_state, "checked_at": now.isoformat()}
+    new_value = {"feeds": feed_state, "checked_at": now.isoformat()}
     if health_setting:
         health_setting.value_json = new_value
     else:
