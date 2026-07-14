@@ -97,9 +97,16 @@ def naive_now() -> datetime:
 
 
 def as_naive(dt: Optional[datetime]) -> Optional[datetime]:
+    """tz-aware datetime（数据库读出来是 UTC）转成本地时区（北京）的 naive
+    datetime，用于展示和与 naive_now() 做时间差计算。
+
+    之前这里只是 dt.replace(tzinfo=None) 直接砍掉时区信息，没有先转换，
+    等于把 UTC 的数字当成了本地时间，导致历史页/详情页发布时间显示、
+    以及 humanize_ago() 的"X 小时前"计算都少了 8 小时。
+    """
     if dt is None:
         return None
-    return dt.replace(tzinfo=None) if dt.tzinfo else dt
+    return dt.astimezone().replace(tzinfo=None) if dt.tzinfo else dt
 
 
 def humanize_ago(dt: Optional[datetime]) -> str:
@@ -340,6 +347,8 @@ async def analysis_detail(request: Request, analysis_id: int, db: Session = Depe
         Opportunity.analysis_id == analysis_id
     ).order_by(Opportunity.idx).all()
 
+    published_naive = as_naive(content_item.published_at)
+
     return templates.TemplateResponse(request, "pages/analysis.html", {
         "request": request,
         "user": user,
@@ -347,4 +356,7 @@ async def analysis_detail(request: Request, analysis_id: int, db: Session = Depe
         "content_item": content_item,
         "opportunities": opportunities,
         "result": analysis.result_json or {},
+        # 模板不要直接对 content_item.published_at（UTC）做 strftime，
+        # 这里先转好本地时间再传入，避免显示比实际发布时间早 8 小时
+        "published_at_label": published_naive.strftime("%Y-%m-%d %H:%M") if published_naive else "未知",
     })

@@ -8,6 +8,10 @@
 - /analysis/{id} 恢复登录保护
 - /system 不受影响
 """
+import os
+import time
+from datetime import datetime, timezone
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -15,6 +19,23 @@ from src.app.core.security import create_session_token
 from src.app.domain.models import AppUser
 from src.app.main import app
 from src.app.web.routers import pages
+
+
+@pytest.fixture()
+def beijing_tz(monkeypatch):
+    """把进程时区固定为 Asia/Shanghai，让 as_naive() 的转换结果可预测，
+    不依赖跑测试的机器本身时区设置。"""
+    original_tz = os.environ.get("TZ")
+    monkeypatch.setenv("TZ", "Asia/Shanghai")
+    time.tzset()
+    try:
+        yield
+    finally:
+        if original_tz is not None:
+            os.environ["TZ"] = original_tz
+        else:
+            os.environ.pop("TZ", None)
+        time.tzset()
 
 
 @pytest.fixture()
@@ -81,6 +102,28 @@ def test_analysis_detail_accessible_when_logged_in(
 
     resp = logged_in_client.get(f"/analysis/{analysis.id}", follow_redirects=False)
     assert resp.status_code == 200
+
+
+def test_as_naive_converts_utc_to_local_not_just_strips_tzinfo(beijing_tz):
+    # 回归：as_naive() 曾经只是 dt.replace(tzinfo=None) 直接砍掉时区信息，
+    # 没有先转换成本地时间，导致数据库里的 UTC 数字被当成本地时间直接显示，
+    # 页面上的发布时间/更新时间比实际早 8 小时
+    utc_dt = datetime(2026, 7, 13, 14, 46, 0, tzinfo=timezone.utc)  # 北京时间 22:46
+    assert pages.as_naive(utc_dt) == datetime(2026, 7, 13, 22, 46, 0)
+
+
+def test_analysis_detail_shows_beijing_time_not_raw_utc(
+    beijing_tz, logged_in_client, make_content_item, make_analysis_result
+):
+    item = make_content_item(
+        published_at=datetime(2026, 7, 13, 14, 46, 0, tzinfo=timezone.utc)  # 北京 22:46
+    )
+    analysis = make_analysis_result(item)
+
+    resp = logged_in_client.get(f"/analysis/{analysis.id}", follow_redirects=False)
+    assert resp.status_code == 200
+    assert "2026-07-13 22:46" in resp.text
+    assert "14:46" not in resp.text
 
 
 def test_system_page_still_requires_login_and_renders(logged_in_client):
